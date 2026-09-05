@@ -21,7 +21,10 @@ def ts_panel(id, title, x, y, w, h, sql, unit=None, overrides=None):
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "targets": [sql_target(sql)],
         "fieldConfig": {"defaults": {"custom": {"spanNulls": True}}, "overrides": overrides or []},
-        "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+        # tooltip mode "multi" -- show every series' value in the tooltip, not just the
+        # one nearest the cursor.
+        "options": {"legend": {"displayMode": "list", "placement": "bottom"},
+                    "tooltip": {"mode": "multi", "sort": "none"}},
     }
     if unit:
         p["fieldConfig"]["defaults"]["unit"] = unit
