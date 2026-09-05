@@ -46,6 +46,8 @@ Plus derived tables, rebuilt on every `import.sql` run:
 
 All under an "Empulse R" folder, tagged `brammo`:
 
+![Empulse R dashboard folder](docs/screenshots/dashboards-folder.png)
+
 - **Sessions** -- overview of every drive/charge session (clickable tables linking into the detail dashboards below), pack capacity degradation over time, module SoC spread trend, end-of-charge cell imbalance trend
 
   ![Sessions dashboard](docs/screenshots/sessions.png)
