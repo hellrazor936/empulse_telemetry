@@ -567,6 +567,14 @@ drive_panels.append({
     "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", bms_fault_flag FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1")],
     "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
 })
+# E-record byte 2, bits 0-2 -- selected gear (0=neutral, 1-6), see decode_empulse_logs.py.
+drive_panels.append({
+    "id": 23, "type": "state-timeline",
+    "title": "Gear", "datasource": ds,
+    "gridPos": {"x": 0, "y": 74, "w": 24, "h": 4},
+    "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", gear FROM gear_status WHERE source_file = '$session' AND {tf} ORDER BY 1")],
+    "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
+})
 
 dash_drive = dashboard(UID_DRIVE, "Empulse R -- Session Details", drive_panels, [session_var("session", "drive")])
 
