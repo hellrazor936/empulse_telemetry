@@ -502,7 +502,13 @@ FROM drive_telemetry dt LEFT JOIN gear_status gs ON gs.source_file = dt.source_f
 WHERE dt.source_file = '$session' AND $__timeFilter(dt."timestamp") ORDER BY 1""",
     overrides=[
         {"matcher": {"id": "byName", "options": "speed_kmh"}, "properties": [{"id": "unit", "value": "velocitykmh"}]},
-        {"matcher": {"id": "byName", "options": "gear"}, "properties": [{"id": "custom.axisPlacement", "value": "right"}, {"id": "max", "value": 6}]},
+        {"matcher": {"id": "byName", "options": "gear"}, "properties": [
+            {"id": "custom.axisPlacement", "value": "right"},
+            {"id": "max", "value": 6},
+            {"id": "custom.lineWidth", "value": 0},
+            {"id": "custom.fillOpacity", "value": 20},
+            {"id": "custom.lineInterpolation", "value": "stepAfter"},
+        ]},
     ]))
 # brake_applied (from gear_status, E-record) scaled to 0/100 so it overlays legibly on the
 # same 0-100 throttle_pct axis -- a flat 100 band whenever the brake is pressed.
