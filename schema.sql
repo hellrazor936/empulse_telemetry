@@ -60,7 +60,11 @@ CREATE TABLE drive_telemetry (
     motor_voltage_vrms numeric,
     motor_current_arms numeric,
     motor_power_kw numeric,
-    estimated_range_mi numeric
+    estimated_range_mi numeric,
+    -- D-record byte 7 -- Sevcon motor controller fault code, verified 100% (0/10214
+    -- mismatches across 19 sessions). Only value confirmed against reference decodes is
+    -- 56 ("S56: SEVCON -- 0x45c9 Motor low voltage"); other nonzero values are raw/unconfirmed.
+    mc_fault_code smallint
 );
 
 CREATE TABLE module_current_temp (

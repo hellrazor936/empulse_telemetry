@@ -354,6 +354,15 @@ sessions_panels.append(table_panel(19, "Average Balancing Frequency by Module (A
 ) x ORDER BY avg_balance_pct DESC""",
     overrides=[{"matcher": {"id": "byName", "options": "avg_balance_pct"}, "properties": [{"id": "unit", "value": "percent"}, {"id": "decimals", "value": 1}]}]))
 
+# D-record byte 7 -- Sevcon motor controller fault code (see decode_empulse_logs.py). Only
+# code 56 is confirmed against reference data ("S56: SEVCON -- 0x45c9 Motor low voltage"),
+# always seen during hard acceleration at high RPM, immediately followed by a throttle/torque
+# cut -- consistent with a brief DC-bus voltage sag under a current spike, not literally "low
+# voltage" in the sense of a depleted pack.
+sessions_panels.append(table_panel(20, "Motor Controller Fault Events (S56 = Motor Low Voltage)", 0, 58, 24, 9,
+    """SELECT "timestamp" AS "time", source_file, speed_mph, rpm, motor_voltage_vrms, motor_current_arms, mc_fault_code
+FROM drive_telemetry WHERE mc_fault_code <> 0 ORDER BY "timestamp" """))
+
 MIN_DURATION_VAR = {
     "name": "min_duration_min",
     "type": "textbox",
@@ -524,6 +533,17 @@ drive_panels.append(ts_panel(19, "Motor Voltage / Current / Power", 0, 58, 12, 8
 drive_panels.append(ts_panel(20, "Estimated Range (dash indicator)", 12, 58, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", estimated_range_mi * 1.609344 AS estimated_range_km FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1",
     overrides=[{"matcher": {"id": "byName", "options": "estimated_range_km"}, "properties": [{"id": "unit", "value": "lengthkm"}]}]))
+# D-record byte 7 -- Sevcon motor controller fault code (see decode_empulse_logs.py). Only
+# code 56 is confirmed against reference data ("S56: SEVCON -- 0x45c9 Motor low voltage"),
+# observed exclusively during hard acceleration at high RPM, immediately followed by a
+# throttle/torque cut -- consistent with a brief DC-bus voltage sag under a current spike.
+drive_panels.append({
+    "id": 21, "type": "state-timeline",
+    "title": "Motor Controller Fault Code (56 = S56 Motor Low Voltage)", "datasource": ds,
+    "gridPos": {"x": 0, "y": 66, "w": 24, "h": 4},
+    "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", mc_fault_code FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1")],
+    "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
+})
 
 dash_drive = dashboard(UID_DRIVE, "Empulse R -- Session Details", drive_panels, [session_var("session", "drive")])
 

@@ -78,6 +78,9 @@ def iter_records(data):
 def decode_D(payload):
     # 17-byte payload. motor_voltage/current, estimated_range added later -- verified 100%
     # (0/4580 mismatches across 3 sessions) against official-tool reference decodes.
+    # mc_fault_code (byte 7) verified 100% (0/10214 mismatches across 19 sessions); the
+    # only value observed in reference data is 56, confirmed as Sevcon fault "S56: SEVCON
+    # -- 0x45c9 Motor low voltage". Other nonzero values are decoded as-is but unconfirmed.
     if len(payload) < 17:
         return None
     speed_raw, = struct.unpack_from(">H", payload, 0)
@@ -85,6 +88,7 @@ def decode_D(payload):
     motor_temp = payload[3]
     motor_voltage_vrms = payload[4]
     motor_current_arms, = struct.unpack_from(">h", payload, 5)
+    mc_fault_code = payload[7]
     throttle = payload[8]
     odo, = struct.unpack_from(">f", payload, 9)
     rpm, = struct.unpack_from(">H", payload, 13)
@@ -100,6 +104,7 @@ def decode_D(payload):
         "motor_current_arms": motor_current_arms,
         "motor_power_kw": round(motor_voltage_vrms * motor_current_arms / 1000.0, 3),
         "estimated_range_mi": round(estimated_range_mi * 0.1, 1),
+        "mc_fault_code": mc_fault_code,
     }
 
 
@@ -213,7 +218,7 @@ def main():
     drive_fields = ["source_file", "session_type", "timestamp", "speed_mph", "rpm",
                      "odometer_mi", "air_temp_f", "motor_temp_f", "throttle_pct",
                      "motor_voltage_vrms", "motor_current_arms", "motor_power_kw",
-                     "estimated_range_mi"]
+                     "estimated_range_mi", "mc_fault_code"]
     soc_fields = ["source_file", "session_type", "timestamp", "overall_soc_pct"] + \
                  [f"module{i}_soc_pct" for i in range(1, NUM_BATTERIES + 1)] + \
                  ["pack_voltage_v", "high_cell_v", "low_cell_v", "cell_imbalance_mv",
