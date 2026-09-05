@@ -1,6 +1,45 @@
 import json
 import os
 
+# UNITS=metric (default) shows km/h, km, and Celsius; UNITS=imperial keeps the bike's own
+# native mph/mi/Fahrenheit as-is (no conversion). Chosen at generation time, not live in
+# Grafana -- Grafana's field "unit" is a display label, not a live converter, so a real
+# toggle would need either fixed axis labels or a second set of dashboards; regenerating
+# and redeploying is the simpler, more robust tradeoff for a single-user dashboard.
+UNITS = os.environ.get("UNITS", "metric").lower()
+assert UNITS in ("metric", "imperial"), f"UNITS must be 'metric' or 'imperial', got {UNITS!r}"
+
+
+def conv_length(col, alias):
+    """(bare_expr, alias, unit): km (from a *_mi column) in metric mode, raw miles in
+    imperial mode. Caller adds "AS alias" where a column name is needed."""
+    if UNITS == "metric":
+        return f"{col} * 1.609344", f"{alias}_km", "lengthkm"
+    return col, f"{alias}_mi", "lengthmi"
+
+
+def conv_speed(col, alias):
+    """km/h (from a *_mph column) in metric mode, raw mph in imperial mode."""
+    if UNITS == "metric":
+        return f"{col} * 1.609344", f"{alias}_kmh", "velocitykmh"
+    return col, f"{alias}_mph", "velocitymph"
+
+
+def conv_temp_f(col, alias):
+    """Celsius (from a *_f column, e.g. air/motor temp) in metric mode, raw F in imperial."""
+    if UNITS == "metric":
+        return f"({col} - 32) * 5.0/9.0", f"{alias}_c", "celsius"
+    return col, f"{alias}_f", "fahrenheit"
+
+
+def conv_temp_c(col, alias):
+    """Celsius as-is in metric mode (e.g. cell temps, already stored in C); converted to F
+    in imperial mode."""
+    if UNITS == "metric":
+        return col, f"{alias}_c", "celsius"
+    return f"({col} * 9.0/5.0) + 32", f"{alias}_f", "fahrenheit"
+
+
 DS_UID = "bfx97xdyvr6dce"
 FOLDER_UID = "bfx97yq6k77y8d"
 
@@ -130,6 +169,19 @@ CELL_COLS = ", ".join(
     f"module{m}_cell{c}_v" for m in range(1, 8) for c in range(1, 5)
 )
 
+# module{i}_cell_temp_c and min/max_cell_temp_c are stored in Celsius natively (BMS-internal),
+# so this is the only place conv_temp_c's F-conversion direction actually applies.
+_module_cell_temp_convs = [conv_temp_c(f"module{m}_cell_temp_c", f"module{m}_cell_temp") for m in range(1, 8)]
+MODULE_CELL_TEMP_COLS = ", ".join(f"{expr} AS {alias}" for expr, alias, _ in _module_cell_temp_convs)
+MODULE_CELL_TEMP_UNIT = _module_cell_temp_convs[0][2]
+_min_ct_expr, _min_ct_alias, _cell_temp_unit = conv_temp_c("min_cell_temp_c", "min_cell_temp")
+_max_ct_expr, _max_ct_alias, _ = conv_temp_c("max_cell_temp_c", "max_cell_temp")
+CELL_TEMP_RANGE_COLS = f"{_min_ct_expr} AS {_min_ct_alias}, {_max_ct_expr} AS {_max_ct_alias}"
+CELL_TEMP_RANGE_OVERRIDES = [
+    {"matcher": {"id": "byName", "options": _min_ct_alias}, "properties": [{"id": "unit", "value": _cell_temp_unit}]},
+    {"matcher": {"id": "byName", "options": _max_ct_alias}, "properties": [{"id": "unit", "value": _cell_temp_unit}]},
+]
+
 # ---------------------------------------------------------------- Dashboard 1: Sessions overview
 sessions_panels = []
 
@@ -137,8 +189,9 @@ sessions_panels.append(stat_panel(1, "Drive Sessions", 0, 0, 4, 4,
     "SELECT count(*) FROM sessions WHERE session_type = 'drive'"))
 sessions_panels.append(stat_panel(2, "Charge Sessions", 4, 0, 4, 4,
     "SELECT count(*) FROM sessions WHERE session_type = 'charge'"))
+_total_dist_expr, _, _total_dist_unit = conv_length("sum(odometer_end_mi - odometer_start_mi)", "total")
 sessions_panels.append(stat_panel(3, "Total Distance", 8, 0, 4, 4,
-    "SELECT round(sum(odometer_end_mi - odometer_start_mi) * 1.609344) FROM sessions WHERE session_type = 'drive'", unit="suffix:km"))
+    f"SELECT round({_total_dist_expr}) FROM sessions WHERE session_type = 'drive'", unit=_total_dist_unit))
 sessions_panels.append(stat_panel(4, "Total Ride Time", 12, 0, 4, 4,
     "SELECT round(sum(extract(epoch from duration))/3600,0) FROM sessions WHERE session_type = 'drive'", unit="h"))
 sessions_panels.append(stat_panel(5, "Logged Since", 16, 0, 4, 4,
@@ -181,18 +234,22 @@ hide_epoch = [
     {"matcher": {"id": "byName", "options": "ended_epoch"}, "properties": [{"id": "custom.hidden", "value": True}]},
 ]
 
-drive_table_sql = """SELECT
+_drive_dist_expr, _drive_dist_alias, _drive_dist_unit = conv_length("(odometer_end_mi - odometer_start_mi)", "distance")
+_drive_speed_expr, _drive_speed_alias, _drive_speed_unit = conv_speed("max_speed_mph", "max_speed")
+MIN_DISTANCE_VAR_NAME = "min_distance_km" if UNITS == "metric" else "min_distance_mi"
+
+drive_table_sql = f"""SELECT
   source_file, started_at, ended_at,
   round(extract(epoch from duration)/60,1) AS duration_min,
-  round((odometer_end_mi - odometer_start_mi) * 1.609344, 1) AS distance_km,
-  round(max_speed_mph * 1.609344, 1) AS max_speed_kmh,
+  round({_drive_dist_expr}, 1) AS {_drive_dist_alias},
+  round({_drive_speed_expr}, 1) AS {_drive_speed_alias},
   min_soc_pct, max_soc_pct,
   extract(epoch from started_at)*1000 AS started_epoch,
   extract(epoch from ended_at)*1000 AS ended_epoch
 FROM sessions WHERE session_type = 'drive'
   AND $__timeFilter(started_at)
-  AND extract(epoch from duration)/60 >= ${min_duration_min}
-  AND COALESCE((odometer_end_mi - odometer_start_mi) * 1.609344, 0) >= ${min_distance_km}
+  AND extract(epoch from duration)/60 >= ${{min_duration_min}}
+  AND COALESCE({_drive_dist_expr}, 0) >= ${{{MIN_DISTANCE_VAR_NAME}}}
 ORDER BY started_at DESC"""
 
 charge_table_sql = """SELECT
@@ -211,8 +268,8 @@ ORDER BY s.started_at DESC"""
 
 sessions_panels.append(table_panel(7, "Drive Sessions (click a row to open)", 0, 4, 24, 9, drive_table_sql,
     overrides=[drive_link] + hide_epoch +
-    [{"matcher": {"id": "byName", "options": "distance_km"}, "properties": [{"id": "unit", "value": "lengthkm"}]},
-     {"matcher": {"id": "byName", "options": "max_speed_kmh"}, "properties": [{"id": "unit", "value": "velocitykmh"}]},
+    [{"matcher": {"id": "byName", "options": _drive_dist_alias}, "properties": [{"id": "unit", "value": _drive_dist_unit}]},
+     {"matcher": {"id": "byName", "options": _drive_speed_alias}, "properties": [{"id": "unit", "value": _drive_speed_unit}]},
      {"matcher": {"id": "byName", "options": "duration_min"}, "properties": [{"id": "unit", "value": "m"}]}]))
 
 sessions_panels.append(table_panel(8, "Charge Sessions (click a row to open)", 0, 13, 24, 9, charge_table_sql,
@@ -372,9 +429,11 @@ sessions_panels.append(table_panel(19, "Average Balancing Frequency by Module (A
 # always seen during hard acceleration at high RPM, immediately followed by a throttle/torque
 # cut -- consistent with a brief DC-bus voltage sag under a current spike, not literally "low
 # voltage" in the sense of a depleted pack.
+_fault_speed_expr, _fault_speed_alias, _fault_speed_unit = conv_speed("speed_mph", "speed")
 sessions_panels.append(table_panel(20, "Motor Controller Fault Events (S56 = Motor Low Voltage)", 0, 58, 24, 9,
-    """SELECT "timestamp" AS "time", source_file, speed_mph, rpm, motor_voltage_vrms, motor_current_arms, mc_fault_code
-FROM drive_telemetry WHERE mc_fault_code <> 0 AND $__timeFilter("timestamp") ORDER BY "timestamp" """))
+    f"""SELECT "timestamp" AS "time", source_file, {_fault_speed_expr} AS {_fault_speed_alias}, rpm, motor_voltage_vrms, motor_current_arms, mc_fault_code
+FROM drive_telemetry WHERE mc_fault_code <> 0 AND $__timeFilter("timestamp") ORDER BY "timestamp" """,
+    overrides=[{"matcher": {"id": "byName", "options": _fault_speed_alias}, "properties": [{"id": "unit", "value": _fault_speed_unit}]}]))
 
 # B-record byte 10 bit 3 -- verified 100% but unconfirmed meaning (see decode_empulse_logs.py).
 # Far more frequent than the S56 fault above (1942 samples vs. 207) and never coincides with
@@ -391,9 +450,9 @@ MIN_DURATION_VAR = {
     "current": {"value": "0", "text": "0"},
 }
 MIN_DISTANCE_VAR = {
-    "name": "min_distance_km",
+    "name": MIN_DISTANCE_VAR_NAME,
     "type": "textbox",
-    "label": "Min distance (km)",
+    "label": f"Min distance ({'km' if UNITS == 'metric' else 'mi'})",
     "query": "0",
     "current": {"value": "0", "text": "0"},
 }
@@ -408,14 +467,39 @@ dash_sessions = dashboard(UID_SESSIONS, "Empulse R -- Sessions", sessions_panels
 # temperature dependency. See drive_range_estimates in import.sql for the underlying data.
 eff_panels = []
 
+# distance_expr converts the raw distance_mi column; weighted range-at-100% always derives
+# from it (sum(distance)/sum(soc_used_pct)*100), never from averaging a per-row ratio.
+# range_expr separately converts the precomputed per-row range_at_100pct_mi column, used only
+# where the *unweighted* per-drive average is wanted alongside the weighted one.
+distance_expr, distance_alias, distance_unit = conv_length("distance_mi", "total")
+_, weighted_range_alias, range_unit = conv_length("distance_mi", "range_at_100pct")
+range_expr, avg_range_alias, _ = conv_length("range_at_100pct_mi", "range_at_100pct")
+speed_expr, speed_alias, speed_unit = conv_speed("avg_speed_mph", "avg_speed")
+temp_expr, temp_alias, temp_unit = conv_temp_f("avg_air_temp_f", "avg_temp")
+
+
+def weighted_range_sql(distance_col="distance_mi", soc_col="soc_used_pct"):
+    factor = 1.609344 if UNITS == "metric" else 1
+    return f"sum({distance_col}) / sum({soc_col}) * 100 * {factor}"
+
+
+# Bucket thresholds are hand-picked round numbers per unit system, not mechanical
+# conversions of the metric ones (e.g. imperial buckets are round mph/F, not "18.6 mph").
+if UNITS == "metric":
+    speed_buckets = f"WHEN {speed_alias} < 30 THEN '<30 km/h' WHEN {speed_alias} < 45 THEN '30-45 km/h' WHEN {speed_alias} < 60 THEN '45-60 km/h' ELSE '60+ km/h'"
+    temp_buckets = f"WHEN {temp_alias} < 5 THEN '<5C' WHEN {temp_alias} < 15 THEN '5-15C' WHEN {temp_alias} < 25 THEN '15-25C' ELSE '25C+'"
+else:
+    speed_buckets = f"WHEN {speed_alias} < 20 THEN '<20 mph' WHEN {speed_alias} < 30 THEN '20-30 mph' WHEN {speed_alias} < 40 THEN '30-40 mph' ELSE '40+ mph'"
+    temp_buckets = f"WHEN {temp_alias} < 40 THEN '<40F' WHEN {temp_alias} < 60 THEN '40-60F' WHEN {temp_alias} < 80 THEN '60-80F' ELSE '80F+'"
+
 eff_panels.append(stat_panel(1, "Avg. Range at 100% SoC (deep-depletion drives, >=30% SoC used)", 0, 0, 8, 4,
-    "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)", unit="suffix:km"))
+    f"SELECT round({weighted_range_sql()}) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)", unit=range_unit))
 eff_panels.append(stat_panel(2, "Avg. Range at 100% SoC (all qualifying drives -- biased high, see below)", 8, 0, 8, 4,
-    "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates WHERE $__timeFilter(started_at)", unit="suffix:km"))
+    f"SELECT round({weighted_range_sql()}) FROM drive_range_estimates WHERE $__timeFilter(started_at)", unit=range_unit))
 eff_panels.append(stat_panel(3, "Deep-Depletion Drives (>=30% SoC used)", 16, 0, 8, 4,
     "SELECT count(*) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)"))
 
-depth_sql = """SELECT
+depth_sql = f"""SELECT
   CASE
     WHEN soc_used_pct < 15 THEN '5-15%'
     WHEN soc_used_pct < 30 THEN '15-30%'
@@ -423,9 +507,9 @@ depth_sql = """SELECT
     ELSE '50%+'
   END AS soc_used,
   count(*) AS n_drives,
-  round(avg(avg_speed_kmh),1) AS avg_speed_kmh,
-  round(sum(distance_km)) AS total_km,
-  round(sum(distance_km) / sum(soc_used_pct) * 100) AS range_at_100pct_km
+  round(avg({speed_expr}),1) AS {speed_alias},
+  round(sum({distance_expr})) AS {distance_alias},
+  round({weighted_range_sql()}) AS {weighted_range_alias}
 FROM drive_range_estimates
 WHERE $__timeFilter(started_at)
 GROUP BY 1
@@ -434,55 +518,55 @@ ORDER BY min(soc_used_pct)"""
 eff_panels.append(table_panel(4, "Range by Depletion Depth (shows the extrapolation bias)", 0, 4, 12, 6,
     depth_sql,
     overrides=[
-        {"matcher": {"id": "byName", "options": "avg_speed_kmh"}, "properties": [{"id": "unit", "value": "velocitykmh"}]},
-        {"matcher": {"id": "byName", "options": "total_km"}, "properties": [{"id": "unit", "value": "suffix:km"}]},
-        {"matcher": {"id": "byName", "options": "range_at_100pct_km"}, "properties": [{"id": "unit", "value": "suffix:km"}]},
+        {"matcher": {"id": "byName", "options": speed_alias}, "properties": [{"id": "unit", "value": speed_unit}]},
+        {"matcher": {"id": "byName", "options": distance_alias}, "properties": [{"id": "unit", "value": distance_unit}]},
+        {"matcher": {"id": "byName", "options": weighted_range_alias}, "properties": [{"id": "unit", "value": range_unit}]},
     ]))
 
-speed_sql = """SELECT
-  CASE
-    WHEN avg_speed_kmh < 30 THEN '<30 km/h'
-    WHEN avg_speed_kmh < 45 THEN '30-45 km/h'
-    WHEN avg_speed_kmh < 60 THEN '45-60 km/h'
-    ELSE '60+ km/h'
-  END AS avg_speed,
+speed_sql = f"""WITH base AS (
+  SELECT soc_used_pct, distance_mi, started_at,
+    {speed_expr} AS {speed_alias}, {range_expr} AS {avg_range_alias}
+  FROM drive_range_estimates
+)
+SELECT
+  CASE {speed_buckets} END AS avg_speed,
   count(*) AS n_drives,
-  round(avg(range_at_100pct_km)) AS avg_range_at_100pct_km,
-  round(sum(distance_km) / sum(soc_used_pct) * 100) AS weighted_range_at_100pct_km
-FROM drive_range_estimates
+  round(avg({avg_range_alias})) AS avg_{avg_range_alias},
+  round({weighted_range_sql()}) AS weighted_{weighted_range_alias}
+FROM base
 WHERE $__timeFilter(started_at)
 GROUP BY 1
-ORDER BY min(avg_speed_kmh)"""
+ORDER BY min({speed_alias})"""
 
 eff_panels.append(table_panel(5, "Range by Average Riding Speed (drag scales ~v^2)", 12, 4, 12, 6,
     speed_sql,
     overrides=[
-        {"matcher": {"id": "byName", "options": "avg_range_at_100pct_km"}, "properties": [{"id": "unit", "value": "suffix:km"}]},
-        {"matcher": {"id": "byName", "options": "weighted_range_at_100pct_km"}, "properties": [{"id": "unit", "value": "suffix:km"}]},
+        {"matcher": {"id": "byName", "options": f"avg_{avg_range_alias}"}, "properties": [{"id": "unit", "value": range_unit}]},
+        {"matcher": {"id": "byName", "options": f"weighted_{weighted_range_alias}"}, "properties": [{"id": "unit", "value": range_unit}]},
     ]))
 
-temp_sql = """SELECT
-  CASE
-    WHEN avg_air_temp_c < 5 THEN '<5C'
-    WHEN avg_air_temp_c < 15 THEN '5-15C'
-    WHEN avg_air_temp_c < 25 THEN '15-25C'
-    ELSE '25C+'
-  END AS air_temp,
+temp_sql = f"""WITH base AS (
+  SELECT soc_used_pct, distance_mi, avg_air_temp_f, started_at,
+    {temp_expr} AS {temp_alias}, {speed_expr} AS {speed_alias}
+  FROM drive_range_estimates
+)
+SELECT
+  CASE {temp_buckets} END AS air_temp,
   count(*) AS n_drives,
-  round(avg(avg_air_temp_c),1) AS avg_temp_c,
-  round(avg(avg_speed_kmh),1) AS avg_speed_kmh,
-  round(sum(distance_km) / sum(soc_used_pct) * 100) AS weighted_range_at_100pct_km
-FROM drive_range_estimates
-WHERE avg_air_temp_c IS NOT NULL AND $__timeFilter(started_at)
+  round(avg({temp_alias}),1) AS {temp_alias},
+  round(avg({speed_alias}),1) AS {speed_alias},
+  round({weighted_range_sql()}) AS weighted_{weighted_range_alias}
+FROM base
+WHERE avg_air_temp_f IS NOT NULL AND $__timeFilter(started_at)
 GROUP BY 1
-ORDER BY min(avg_air_temp_c)"""
+ORDER BY min({temp_alias})"""
 
 eff_panels.append(table_panel(6, "Range by Ambient Temperature (avg speed shown to rule out a speed confound)", 0, 10, 24, 6,
     temp_sql,
     overrides=[
-        {"matcher": {"id": "byName", "options": "avg_temp_c"}, "properties": [{"id": "unit", "value": "celsius"}]},
-        {"matcher": {"id": "byName", "options": "avg_speed_kmh"}, "properties": [{"id": "unit", "value": "velocitykmh"}]},
-        {"matcher": {"id": "byName", "options": "weighted_range_at_100pct_km"}, "properties": [{"id": "unit", "value": "suffix:km"}]},
+        {"matcher": {"id": "byName", "options": temp_alias}, "properties": [{"id": "unit", "value": temp_unit}]},
+        {"matcher": {"id": "byName", "options": speed_alias}, "properties": [{"id": "unit", "value": speed_unit}]},
+        {"matcher": {"id": "byName", "options": f"weighted_{weighted_range_alias}"}, "properties": [{"id": "unit", "value": range_unit}]},
     ]))
 
 dash_efficiency = dashboard(UID_EFFICIENCY, "Empulse R -- Efficiency", eff_panels, [], time_from="2014-01-01")
@@ -491,26 +575,30 @@ dash_efficiency = dashboard(UID_EFFICIENCY, "Empulse R -- Efficiency", eff_panel
 drive_panels = []
 drive_panels.append(stat_panel(1, "Duration", 0, 0, 4, 4,
     "SELECT round(extract(epoch from duration)/60,1) FROM sessions WHERE source_file = '$session'", unit="m"))
+_ddist_expr, _, _ddist_unit = conv_length("(odometer_end_mi - odometer_start_mi)", "distance")
+_dspeed_expr, _, _dspeed_unit = conv_speed("max_speed_mph", "max_speed")
+_dodo_expr, _, _dodo_unit = conv_length("odometer_end_mi", "odometer")
 drive_panels.append(stat_panel(2, "Distance", 4, 0, 4, 4,
-    "SELECT round((odometer_end_mi - odometer_start_mi) * 1.609344, 1) FROM sessions WHERE source_file = '$session'", unit="lengthkm"))
+    f"SELECT round({_ddist_expr}, 1) FROM sessions WHERE source_file = '$session'", unit=_ddist_unit))
 drive_panels.append(stat_panel(3, "Max Speed", 8, 0, 4, 4,
-    "SELECT round(max_speed_mph * 1.609344, 1) FROM sessions WHERE source_file = '$session'", unit="velocitykmh"))
+    f"SELECT round({_dspeed_expr}, 1) FROM sessions WHERE source_file = '$session'", unit=_dspeed_unit))
 drive_panels.append(stat_panel(4, "Min SoC", 12, 0, 4, 4,
     "SELECT min_soc_pct FROM sessions WHERE source_file = '$session'", unit="percent"))
 drive_panels.append(stat_panel(5, "Max SoC", 16, 0, 4, 4,
     "SELECT max_soc_pct FROM sessions WHERE source_file = '$session'", unit="percent"))
 drive_panels.append(stat_panel(6, "Odometer (End)", 20, 0, 4, 4,
-    "SELECT round(odometer_end_mi * 1.609344, 1) FROM sessions WHERE source_file = '$session'", unit="suffix:km"))
+    f"SELECT round({_dodo_expr}, 1) FROM sessions WHERE source_file = '$session'", unit=_dodo_unit))
 
 tf = "$__timeFilter(\"timestamp\")"
+_speed_kmh_expr, _speed_kmh_alias, _speed_kmh_unit = conv_speed("speed_mph", "speed")
 # gear (from gear_status, E-record) plotted on its own right-hand axis -- its 0-6 range
 # would be invisible against speed/RPM otherwise.
 drive_panels.append(ts_panel(7, "Speed & RPM & Gear", 0, 4, 12, 8,
-    f"""SELECT dt."timestamp" AS "time", speed_mph * 1.609344 AS speed_kmh, rpm, gs.gear
+    f"""SELECT dt."timestamp" AS "time", {_speed_kmh_expr} AS {_speed_kmh_alias}, rpm, gs.gear
 FROM drive_telemetry dt LEFT JOIN gear_status gs ON gs.source_file = dt.source_file AND gs.timestamp = dt.timestamp
 WHERE dt.source_file = '$session' AND $__timeFilter(dt."timestamp") ORDER BY 1""",
     overrides=[
-        {"matcher": {"id": "byName", "options": "speed_kmh"}, "properties": [{"id": "unit", "value": "velocitykmh"}]},
+        {"matcher": {"id": "byName", "options": _speed_kmh_alias}, "properties": [{"id": "unit", "value": _speed_kmh_unit}]},
         {"matcher": {"id": "byName", "options": "gear"}, "properties": [
             {"id": "custom.axisPlacement", "value": "right"},
             {"id": "max", "value": 6},
@@ -519,16 +607,18 @@ WHERE dt.source_file = '$session' AND $__timeFilter(dt."timestamp") ORDER BY 1""
             {"id": "custom.lineInterpolation", "value": "stepAfter"},
         ]},
     ]))
+_motor_temp_expr, _motor_temp_alias, _motor_temp_unit = conv_temp_f("motor_temp_f", "motor_temp")
+_air_temp_expr, _air_temp_alias, _air_temp_unit = conv_temp_f("air_temp_f", "air_temp")
 # brake_applied (from gear_status, E-record) scaled to 0/100 so it overlays legibly on the
 # same 0-100 throttle_pct axis -- a flat 100 band whenever the brake is pressed.
 drive_panels.append(ts_panel(8, "Motor / Air Temp & Throttle & Brake", 12, 4, 12, 8,
-    f"""SELECT dt."timestamp" AS "time", (motor_temp_f - 32) * 5.0/9.0 AS motor_temp_c,
-    (air_temp_f - 32) * 5.0/9.0 AS air_temp_c, throttle_pct, gs.brake_applied * 100 AS brake_applied_pct
+    f"""SELECT dt."timestamp" AS "time", {_motor_temp_expr} AS {_motor_temp_alias},
+    {_air_temp_expr} AS {_air_temp_alias}, throttle_pct, gs.brake_applied * 100 AS brake_applied_pct
 FROM drive_telemetry dt LEFT JOIN gear_status gs ON gs.source_file = dt.source_file AND gs.timestamp = dt.timestamp
 WHERE dt.source_file = '$session' AND $__timeFilter(dt."timestamp") ORDER BY 1""",
     overrides=[
-        {"matcher": {"id": "byName", "options": "motor_temp_c"}, "properties": [{"id": "unit", "value": "celsius"}]},
-        {"matcher": {"id": "byName", "options": "air_temp_c"}, "properties": [{"id": "unit", "value": "celsius"}]},
+        {"matcher": {"id": "byName", "options": _motor_temp_alias}, "properties": [{"id": "unit", "value": _motor_temp_unit}]},
+        {"matcher": {"id": "byName", "options": _air_temp_alias}, "properties": [{"id": "unit", "value": _air_temp_unit}]},
         # No line, just a 20%-opacity fill that steps straight down instead of the default
         # linear interpolation sloping between an "applied" and a "released" sample.
         {"matcher": {"id": "byName", "options": "brake_applied_pct"}, "properties": [
@@ -540,7 +630,8 @@ WHERE dt.source_file = '$session' AND $__timeFilter(dt."timestamp") ORDER BY 1""
 drive_panels.append(ts_panel(9, "SoC / Pack Voltage / Cell V Range", 0, 12, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", overall_soc_pct, pack_voltage_v, high_cell_v, low_cell_v FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1"))
 drive_panels.append(ts_panel(10, "Cell Imbalance & Cell Temp Range", 12, 12, 12, 8,
-    f"SELECT \"timestamp\" AS \"time\", cell_imbalance_mv, min_cell_temp_c, max_cell_temp_c FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1"))
+    f"SELECT \"timestamp\" AS \"time\", cell_imbalance_mv, {CELL_TEMP_RANGE_COLS} FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1",
+    overrides=CELL_TEMP_RANGE_OVERRIDES))
 # Per-module SoC and the max-min spread between them -- the detail that revealed the July 2024
 # strandings were a module imbalance (some modules near 0% while others still ~15%), not a
 # fully depleted pack. Most actionable live, during the ride, so it lives on this dashboard.
@@ -551,7 +642,7 @@ drive_panels.append(ts_panel(12, "Module-to-Module SoC Spread", 12, 20, 12, 8,
 drive_panels.append(ts_panel(13, "Per-Module Current", 0, 28, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", module1_current_a, module2_current_a, module3_current_a, module4_current_a, module5_current_a, module6_current_a, module7_current_a FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit="amp"))
 drive_panels.append(ts_panel(14, "Per-Module Cell Temp", 12, 28, 12, 8,
-    f"SELECT \"timestamp\" AS \"time\", module1_cell_temp_c, module2_cell_temp_c, module3_cell_temp_c, module4_cell_temp_c, module5_cell_temp_c, module6_cell_temp_c, module7_cell_temp_c FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit="celsius"))
+    f"SELECT \"timestamp\" AS \"time\", {MODULE_CELL_TEMP_COLS} FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit=MODULE_CELL_TEMP_UNIT))
 drive_panels.append(heatmap_panel(15, "Cell Voltage Heatmap (28 cells)", 0, 36, 24, 9,
     f"SELECT \"timestamp\" AS \"time\", {CELL_COLS} FROM cell_voltages WHERE source_file = '$session' AND {tf} ORDER BY 1"))
 # Per-module intra-balancing heatmap: module1..7_intrabalance_active (0/1, from the B-record's
@@ -577,9 +668,10 @@ drive_panels.append(ts_panel(19, "Motor Voltage / Current / Power", 0, 58, 12, 8
         {"matcher": {"id": "byName", "options": "motor_current_arms"}, "properties": [{"id": "unit", "value": "amp"}]},
         {"matcher": {"id": "byName", "options": "motor_power_kw"}, "properties": [{"id": "unit", "value": "kwatt"}]},
     ]))
+_est_range_expr, _est_range_alias, _est_range_unit = conv_length("estimated_range_mi", "estimated_range")
 drive_panels.append(ts_panel(20, "Estimated Range (dash indicator)", 12, 58, 12, 8,
-    f"SELECT \"timestamp\" AS \"time\", estimated_range_mi * 1.609344 AS estimated_range_km FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1",
-    overrides=[{"matcher": {"id": "byName", "options": "estimated_range_km"}, "properties": [{"id": "unit", "value": "lengthkm"}]}]))
+    f"SELECT \"timestamp\" AS \"time\", {_est_range_expr} AS {_est_range_alias} FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1",
+    overrides=[{"matcher": {"id": "byName", "options": _est_range_alias}, "properties": [{"id": "unit", "value": _est_range_unit}]}]))
 # D-record byte 7 -- Sevcon motor controller fault code (see decode_empulse_logs.py). Only
 # code 56 is confirmed against reference data ("S56: SEVCON -- 0x45c9 Motor low voltage"),
 # observed exclusively during hard acceleration at high RPM, immediately followed by a
@@ -623,9 +715,10 @@ charge_panels.append(ts_panel(7, "SoC & Pack Voltage", 0, 4, 12, 8,
 charge_panels.append(ts_panel(8, "Per-Module Charge Current", 12, 4, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", module1_current_a, module2_current_a, module3_current_a, module4_current_a, module5_current_a, module6_current_a, module7_current_a FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit="amp"))
 charge_panels.append(ts_panel(9, "Cell Imbalance & Cell Temp Range", 0, 12, 12, 8,
-    f"SELECT \"timestamp\" AS \"time\", cell_imbalance_mv, min_cell_temp_c, max_cell_temp_c FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1"))
+    f"SELECT \"timestamp\" AS \"time\", cell_imbalance_mv, {CELL_TEMP_RANGE_COLS} FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1",
+    overrides=CELL_TEMP_RANGE_OVERRIDES))
 charge_panels.append(ts_panel(10, "Per-Module Cell Temp", 12, 12, 12, 8,
-    f"SELECT \"timestamp\" AS \"time\", module1_cell_temp_c, module2_cell_temp_c, module3_cell_temp_c, module4_cell_temp_c, module5_cell_temp_c, module6_cell_temp_c, module7_cell_temp_c FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit="celsius"))
+    f"SELECT \"timestamp\" AS \"time\", {MODULE_CELL_TEMP_COLS} FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit=MODULE_CELL_TEMP_UNIT))
 charge_panels.append(heatmap_panel(11, "Cell Voltage Heatmap (28 cells) -- watch balancing at top of charge", 0, 20, 24, 9,
     f"SELECT \"timestamp\" AS \"time\", {CELL_COLS} FROM cell_voltages WHERE source_file = '$session' AND {tf} ORDER BY 1"))
 charge_panels.append(heatmap_panel(13, "Per-Module Intra-Balancing Activity", 0, 29, 24, 7,

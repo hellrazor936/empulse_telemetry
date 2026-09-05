@@ -349,7 +349,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT \"timestamp\" AS \"time\", cell_imbalance_mv, min_cell_temp_c, max_cell_temp_c FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "rawSql": "SELECT \"timestamp\" AS \"time\", cell_imbalance_mv, min_cell_temp_c AS min_cell_temp_c, max_cell_temp_c AS max_cell_temp_c FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
           "format": "time_series",
           "refId": "A",
           "editorMode": "code"
@@ -361,7 +361,32 @@
             "spanNulls": true
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "min_cell_temp_c"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max_cell_temp_c"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -394,7 +419,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_cell_temp_c, module2_cell_temp_c, module3_cell_temp_c, module4_cell_temp_c, module5_cell_temp_c, module6_cell_temp_c, module7_cell_temp_c FROM module_current_temp WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_cell_temp_c AS module1_cell_temp_c, module2_cell_temp_c AS module2_cell_temp_c, module3_cell_temp_c AS module3_cell_temp_c, module4_cell_temp_c AS module4_cell_temp_c, module5_cell_temp_c AS module5_cell_temp_c, module6_cell_temp_c AS module6_cell_temp_c, module7_cell_temp_c AS module7_cell_temp_c FROM module_current_temp WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
           "format": "time_series",
           "refId": "A",
           "editorMode": "code"

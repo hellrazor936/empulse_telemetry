@@ -92,6 +92,18 @@ GRAFANA_DS_UID=<datasource_uid> GRAFANA_FOLDER_UID=<folder_uid> python3 grafana/
 
 That's it -- the dashboards will be under the "Empulse R" folder in Grafana.
 
+By default all dashboards show metric units (km/h, km, Celsius) -- the bike itself logs in miles
+and Fahrenheit, and the conversion happens in `build_dashboards.py`. Set `UNITS=imperial` before
+running the script to generate dashboards in the bike's native units instead:
+
+```bash
+UNITS=imperial python3 grafana/build_dashboards.py | ...
+```
+
+This is a build-time choice, not a live in-Grafana toggle -- Grafana's field "unit" is a display
+label, not a live converter, so switching means regenerating and redeploying. `grafana/dashboards/*.json`
+always reflects whichever `UNITS` value was used for the last regeneration.
+
 ## Setting it up on Kubernetes
 
 ```bash

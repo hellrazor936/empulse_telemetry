@@ -36,7 +36,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)",
+          "rawSql": "SELECT round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -45,7 +45,7 @@
       "fieldConfig": {
         "defaults": {
           "noValue": "n/a",
-          "unit": "suffix:km"
+          "unit": "lengthkm"
         },
         "overrides": []
       }
@@ -70,7 +70,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates WHERE $__timeFilter(started_at)",
+          "rawSql": "SELECT round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) FROM drive_range_estimates WHERE $__timeFilter(started_at)",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -79,7 +79,7 @@
       "fieldConfig": {
         "defaults": {
           "noValue": "n/a",
-          "unit": "suffix:km"
+          "unit": "lengthkm"
         },
         "overrides": []
       }
@@ -137,7 +137,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT\n  CASE\n    WHEN soc_used_pct < 15 THEN '5-15%'\n    WHEN soc_used_pct < 30 THEN '15-30%'\n    WHEN soc_used_pct < 50 THEN '30-50%'\n    ELSE '50%+'\n  END AS soc_used,\n  count(*) AS n_drives,\n  round(avg(avg_speed_kmh),1) AS avg_speed_kmh,\n  round(sum(distance_km)) AS total_km,\n  round(sum(distance_km) / sum(soc_used_pct) * 100) AS range_at_100pct_km\nFROM drive_range_estimates\nWHERE $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(soc_used_pct)",
+          "rawSql": "SELECT\n  CASE\n    WHEN soc_used_pct < 15 THEN '5-15%'\n    WHEN soc_used_pct < 30 THEN '15-30%'\n    WHEN soc_used_pct < 50 THEN '30-50%'\n    ELSE '50%+'\n  END AS soc_used,\n  count(*) AS n_drives,\n  round(avg(avg_speed_mph * 1.609344),1) AS avg_speed_kmh,\n  round(sum(distance_mi * 1.609344)) AS total_km,\n  round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) AS range_at_100pct_km\nFROM drive_range_estimates\nWHERE $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(soc_used_pct)",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -170,7 +170,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "suffix:km"
+                "value": "lengthkm"
               }
             ]
           },
@@ -182,7 +182,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "suffix:km"
+                "value": "lengthkm"
               }
             ]
           }
@@ -212,7 +212,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT\n  CASE\n    WHEN avg_speed_kmh < 30 THEN '<30 km/h'\n    WHEN avg_speed_kmh < 45 THEN '30-45 km/h'\n    WHEN avg_speed_kmh < 60 THEN '45-60 km/h'\n    ELSE '60+ km/h'\n  END AS avg_speed,\n  count(*) AS n_drives,\n  round(avg(range_at_100pct_km)) AS avg_range_at_100pct_km,\n  round(sum(distance_km) / sum(soc_used_pct) * 100) AS weighted_range_at_100pct_km\nFROM drive_range_estimates\nWHERE $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_speed_kmh)",
+          "rawSql": "WITH base AS (\n  SELECT soc_used_pct, distance_mi, started_at,\n    avg_speed_mph * 1.609344 AS avg_speed_kmh, range_at_100pct_mi * 1.609344 AS range_at_100pct_km\n  FROM drive_range_estimates\n)\nSELECT\n  CASE WHEN avg_speed_kmh < 30 THEN '<30 km/h' WHEN avg_speed_kmh < 45 THEN '30-45 km/h' WHEN avg_speed_kmh < 60 THEN '45-60 km/h' ELSE '60+ km/h' END AS avg_speed,\n  count(*) AS n_drives,\n  round(avg(range_at_100pct_km)) AS avg_range_at_100pct_km,\n  round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) AS weighted_range_at_100pct_km\nFROM base\nWHERE $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_speed_kmh)",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -233,7 +233,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "suffix:km"
+                "value": "lengthkm"
               }
             ]
           },
@@ -245,7 +245,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "suffix:km"
+                "value": "lengthkm"
               }
             ]
           }
@@ -275,7 +275,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT\n  CASE\n    WHEN avg_air_temp_c < 5 THEN '<5C'\n    WHEN avg_air_temp_c < 15 THEN '5-15C'\n    WHEN avg_air_temp_c < 25 THEN '15-25C'\n    ELSE '25C+'\n  END AS air_temp,\n  count(*) AS n_drives,\n  round(avg(avg_air_temp_c),1) AS avg_temp_c,\n  round(avg(avg_speed_kmh),1) AS avg_speed_kmh,\n  round(sum(distance_km) / sum(soc_used_pct) * 100) AS weighted_range_at_100pct_km\nFROM drive_range_estimates\nWHERE avg_air_temp_c IS NOT NULL AND $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_air_temp_c)",
+          "rawSql": "WITH base AS (\n  SELECT soc_used_pct, distance_mi, avg_air_temp_f, started_at,\n    (avg_air_temp_f - 32) * 5.0/9.0 AS avg_temp_c, avg_speed_mph * 1.609344 AS avg_speed_kmh\n  FROM drive_range_estimates\n)\nSELECT\n  CASE WHEN avg_temp_c < 5 THEN '<5C' WHEN avg_temp_c < 15 THEN '5-15C' WHEN avg_temp_c < 25 THEN '15-25C' ELSE '25C+' END AS air_temp,\n  count(*) AS n_drives,\n  round(avg(avg_temp_c),1) AS avg_temp_c,\n  round(avg(avg_speed_kmh),1) AS avg_speed_kmh,\n  round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) AS weighted_range_at_100pct_km\nFROM base\nWHERE avg_air_temp_f IS NOT NULL AND $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_temp_c)",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -320,7 +320,7 @@
             "properties": [
               {
                 "id": "unit",
-                "value": "suffix:km"
+                "value": "lengthkm"
               }
             ]
           }

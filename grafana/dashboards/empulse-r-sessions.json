@@ -132,7 +132,7 @@
       "fieldConfig": {
         "defaults": {
           "noValue": "n/a",
-          "unit": "suffix:km"
+          "unit": "lengthkm"
         },
         "overrides": []
       }
@@ -1145,7 +1145,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT \"timestamp\" AS \"time\", source_file, speed_mph, rpm, motor_voltage_vrms, motor_current_arms, mc_fault_code\nFROM drive_telemetry WHERE mc_fault_code <> 0 AND $__timeFilter(\"timestamp\") ORDER BY \"timestamp\" ",
+          "rawSql": "SELECT \"timestamp\" AS \"time\", source_file, speed_mph * 1.609344 AS speed_kmh, rpm, motor_voltage_vrms, motor_current_arms, mc_fault_code\nFROM drive_telemetry WHERE mc_fault_code <> 0 AND $__timeFilter(\"timestamp\") ORDER BY \"timestamp\" ",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -1157,7 +1157,20 @@
             "filterable": true
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "speed_kmh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "velocitykmh"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "showHeader": true

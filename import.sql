@@ -267,7 +267,10 @@ ORDER BY b.source_file, b.timestamp DESC;
 -- FIRST/LAST SoC by time (not min/max) for the same reason as charge_capacity_estimates --
 -- robust against a transient SoC glitch. Only keeps drives with a meaningful distance (>=5km)
 -- and SoC drop (>=5 points) to avoid short-trip noise dominating the estimate.
--- avg_speed_kmh and avg_air_temp_c are carried along so the Efficiency dashboard can break
+-- Kept in the bike's native miles/Fahrenheit (like every other raw/derived table) rather than
+-- pre-converted to metric -- the Efficiency dashboard does the km/Celsius conversion at query
+-- time (see build_dashboards.py, UNITS env var), same as everywhere else.
+-- avg_speed_mph and avg_air_temp_f are carried along so the Efficiency dashboard can break
 -- range down by riding speed and ambient temperature without expensive live joins per panel --
 -- both turned out to matter: deep-depletion drives (>=30% SoC used) average ~55 km/h vs ~37
 -- km/h for short trips (aerodynamic drag ~v^2, plus less regen opportunity than stop-start
@@ -279,10 +282,10 @@ WITH drive_soc AS (
         s.source_file,
         s.started_at,
         s.duration,
-        (s.odometer_end_mi - s.odometer_start_mi) * 1.609344 AS distance_km,
+        (s.odometer_end_mi - s.odometer_start_mi) AS distance_mi,
         (SELECT overall_soc_pct FROM battery_soc b WHERE b.source_file = s.source_file ORDER BY b."timestamp" ASC LIMIT 1) AS soc_start,
         (SELECT overall_soc_pct FROM battery_soc b WHERE b.source_file = s.source_file ORDER BY b."timestamp" DESC LIMIT 1) AS soc_end,
-        (SELECT avg((d.air_temp_f - 32) * 5.0/9.0) FROM drive_telemetry d WHERE d.source_file = s.source_file) AS avg_air_temp_c
+        (SELECT avg(d.air_temp_f) FROM drive_telemetry d WHERE d.source_file = s.source_file) AS avg_air_temp_f
     FROM sessions s
     WHERE s.session_type = 'drive'
       AND s.odometer_end_mi IS NOT NULL AND s.odometer_start_mi IS NOT NULL
@@ -290,13 +293,13 @@ WITH drive_soc AS (
 SELECT
     source_file,
     started_at,
-    distance_km,
+    distance_mi,
     (soc_start - soc_end) AS soc_used_pct,
-    distance_km / (soc_start - soc_end) * 100 AS range_at_100pct_km,
-    distance_km / NULLIF(extract(epoch from duration)/3600.0, 0) AS avg_speed_kmh,
-    avg_air_temp_c
+    distance_mi / (soc_start - soc_end) * 100 AS range_at_100pct_mi,
+    distance_mi / NULLIF(extract(epoch from duration)/3600.0, 0) AS avg_speed_mph,
+    avg_air_temp_f
 FROM drive_soc
-WHERE distance_km >= 5 AND (soc_start - soc_end) >= 5
+WHERE distance_mi >= (5 / 1.609344) AND (soc_start - soc_end) >= 5
 ORDER BY started_at;
 
 -- sanity check counts
