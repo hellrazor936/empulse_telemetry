@@ -5,9 +5,9 @@ of a 2014 Brammo Empulse R electric motorcycle.
 
 ## Required reading before any code change
 
-The full overview lives in `README.md` (data model, dashboards, Docker and
-Kubernetes setup). Additionally, **before writing a single line of SQL or
-Python**:
+The dashboard overview lives in `README.md`; the data model, file layout, and
+Docker/Kubernetes setup are in `INSTALL.md`. Additionally, **before writing a
+single line of SQL or Python**:
 
 1. The comments at the top of every `DROP TABLE ... / CREATE TABLE ... AS`
    block in `import.sql` -- they document *why* a calculation is done the way
