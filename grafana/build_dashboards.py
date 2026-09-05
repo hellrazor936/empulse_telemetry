@@ -497,8 +497,13 @@ tf = "$__timeFilter(\"timestamp\")"
 drive_panels.append(ts_panel(7, "Speed & RPM", 0, 4, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", speed_mph * 1.609344 AS speed_kmh, rpm FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1",
     overrides=[{"matcher": {"id": "byName", "options": "speed_kmh"}, "properties": [{"id": "unit", "value": "velocitykmh"}]}]))
-drive_panels.append(ts_panel(8, "Motor / Air Temp & Throttle", 12, 4, 12, 8,
-    f"SELECT \"timestamp\" AS \"time\", (motor_temp_f - 32) * 5.0/9.0 AS motor_temp_c, (air_temp_f - 32) * 5.0/9.0 AS air_temp_c, throttle_pct FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1",
+# brake_applied (from gear_status, E-record) scaled to 0/100 so it overlays legibly on the
+# same 0-100 throttle_pct axis -- a flat 100 band whenever the brake is pressed.
+drive_panels.append(ts_panel(8, "Motor / Air Temp & Throttle & Brake", 12, 4, 12, 8,
+    f"""SELECT dt."timestamp" AS "time", (motor_temp_f - 32) * 5.0/9.0 AS motor_temp_c,
+    (air_temp_f - 32) * 5.0/9.0 AS air_temp_c, throttle_pct, gs.brake_applied * 100 AS brake_applied_pct
+FROM drive_telemetry dt LEFT JOIN gear_status gs ON gs.source_file = dt.source_file AND gs.timestamp = dt.timestamp
+WHERE dt.source_file = '$session' AND $__timeFilter(dt."timestamp") ORDER BY 1""",
     overrides=[
         {"matcher": {"id": "byName", "options": "motor_temp_c"}, "properties": [{"id": "unit", "value": "celsius"}]},
         {"matcher": {"id": "byName", "options": "air_temp_c"}, "properties": [{"id": "unit", "value": "celsius"}]},
@@ -575,15 +580,6 @@ drive_panels.append({
     "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", gear FROM gear_status WHERE source_file = '$session' AND {tf} ORDER BY 1")],
     "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
 })
-# E-record byte 2, bit 7 -- brake applied, see decode_empulse_logs.py.
-drive_panels.append({
-    "id": 24, "type": "state-timeline",
-    "title": "Brake Applied", "datasource": ds,
-    "gridPos": {"x": 0, "y": 78, "w": 24, "h": 4},
-    "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", brake_applied FROM gear_status WHERE source_file = '$session' AND {tf} ORDER BY 1")],
-    "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
-})
-
 dash_drive = dashboard(UID_DRIVE, "Empulse R -- Session Details", drive_panels, [session_var("session", "drive")])
 
 # ---------------------------------------------------------------- Dashboard 3: Charge details
