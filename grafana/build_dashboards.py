@@ -398,7 +398,7 @@ MIN_DISTANCE_VAR = {
 }
 
 dash_sessions = dashboard(UID_SESSIONS, "Empulse R -- Sessions", sessions_panels, [MIN_DURATION_VAR, MIN_DISTANCE_VAR],
-    annotations=[IDLE_PERIODS_ANNOTATION])
+    time_from="2014-01-01", annotations=[IDLE_PERIODS_ANNOTATION])
 
 # ---------------------------------------------------------------- Dashboard: Efficiency
 # All three factors found while investigating why the naive range estimate (~159km) didn't
@@ -408,11 +408,11 @@ dash_sessions = dashboard(UID_SESSIONS, "Empulse R -- Sessions", sessions_panels
 eff_panels = []
 
 eff_panels.append(stat_panel(1, "Avg. Range at 100% SoC (deep-depletion drives, >=30% SoC used)", 0, 0, 8, 4,
-    "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates WHERE soc_used_pct >= 30", unit="suffix:km"))
+    "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)", unit="suffix:km"))
 eff_panels.append(stat_panel(2, "Avg. Range at 100% SoC (all qualifying drives -- biased high, see below)", 8, 0, 8, 4,
-    "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates", unit="suffix:km"))
+    "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates WHERE $__timeFilter(started_at)", unit="suffix:km"))
 eff_panels.append(stat_panel(3, "Deep-Depletion Drives (>=30% SoC used)", 16, 0, 8, 4,
-    "SELECT count(*) FROM drive_range_estimates WHERE soc_used_pct >= 30"))
+    "SELECT count(*) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)"))
 
 depth_sql = """SELECT
   CASE
@@ -426,6 +426,7 @@ depth_sql = """SELECT
   round(sum(distance_km)) AS total_km,
   round(sum(distance_km) / sum(soc_used_pct) * 100) AS range_at_100pct_km
 FROM drive_range_estimates
+WHERE $__timeFilter(started_at)
 GROUP BY 1
 ORDER BY min(soc_used_pct)"""
 
@@ -448,6 +449,7 @@ speed_sql = """SELECT
   round(avg(range_at_100pct_km)) AS avg_range_at_100pct_km,
   round(sum(distance_km) / sum(soc_used_pct) * 100) AS weighted_range_at_100pct_km
 FROM drive_range_estimates
+WHERE $__timeFilter(started_at)
 GROUP BY 1
 ORDER BY min(avg_speed_kmh)"""
 
@@ -470,7 +472,7 @@ temp_sql = """SELECT
   round(avg(avg_speed_kmh),1) AS avg_speed_kmh,
   round(sum(distance_km) / sum(soc_used_pct) * 100) AS weighted_range_at_100pct_km
 FROM drive_range_estimates
-WHERE avg_air_temp_c IS NOT NULL
+WHERE avg_air_temp_c IS NOT NULL AND $__timeFilter(started_at)
 GROUP BY 1
 ORDER BY min(avg_air_temp_c)"""
 
@@ -482,7 +484,7 @@ eff_panels.append(table_panel(6, "Range by Ambient Temperature (avg speed shown 
         {"matcher": {"id": "byName", "options": "weighted_range_at_100pct_km"}, "properties": [{"id": "unit", "value": "suffix:km"}]},
     ]))
 
-dash_efficiency = dashboard(UID_EFFICIENCY, "Empulse R -- Efficiency", eff_panels, [])
+dash_efficiency = dashboard(UID_EFFICIENCY, "Empulse R -- Efficiency", eff_panels, [], time_from="2014-01-01")
 
 # ---------------------------------------------------------------- Dashboard 2: Session (drive) details
 drive_panels = []
