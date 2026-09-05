@@ -94,10 +94,8 @@ def table_panel(id, title, x, y, w, h, sql, overrides=None):
 
 
 def heatmap_panel(id, title, x, y, w, h, sql, unit="volt", color_min=None, color_max=None, reverse=True):
-    # RdYlGn's natural direction is low=red, high=green; reverse=True (the default, used by
-    # the fault/balancing 0-1 heatmaps below) flips that to low=green, high=red, since there
-    # 0=inactive is the "good" value. Cell voltage wants the natural direction instead --
-    # low voltage=red, high=green -- so those calls pass reverse=False.
+    # Empirically, Grafana's RdYlGn scheme with reverse=True renders low=red, high=green --
+    # confirmed via the cell voltage heatmap (color_min=3.3 red, color_max=4.15 green).
     color = {"mode": "scheme", "scheme": "RdYlGn", "reverse": reverse, "steps": 64}
     if color_min is not None:
         color["min"] = color_min
@@ -654,7 +652,7 @@ drive_panels.append(ts_panel(14, "Per-Module Cell Temp", 12, 28, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", {MODULE_CELL_TEMP_COLS} FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit=MODULE_CELL_TEMP_UNIT))
 drive_panels.append(heatmap_panel(15, "Cell Voltage Heatmap (28 cells)", 0, 36, 24, 9,
     f"SELECT \"timestamp\" AS \"time\", {CELL_COLS} FROM cell_voltages WHERE source_file = '$session' AND {tf} ORDER BY 1",
-    color_min=3.3, color_max=4.15, reverse=False))
+    color_min=3.3, color_max=4.15, reverse=True))
 # Per-module intra-balancing heatmap: module1..7_intrabalance_active (0/1, from the B-record's
 # byte 31 bitmask -- see decode_empulse_logs.py) shown as one row per module, color = active.
 INTRABALANCE_COLS = ", ".join(f"module{m}_intrabalance_active" for m in range(1, 8))
@@ -731,7 +729,7 @@ charge_panels.append(ts_panel(10, "Per-Module Cell Temp", 12, 12, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", {MODULE_CELL_TEMP_COLS} FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit=MODULE_CELL_TEMP_UNIT))
 charge_panels.append(heatmap_panel(11, "Cell Voltage Heatmap (28 cells) -- watch balancing at top of charge", 0, 20, 24, 9,
     f"SELECT \"timestamp\" AS \"time\", {CELL_COLS} FROM cell_voltages WHERE source_file = '$session' AND {tf} ORDER BY 1",
-    color_min=3.3, color_max=4.15, reverse=False))
+    color_min=3.3, color_max=4.15, reverse=True))
 charge_panels.append(heatmap_panel(13, "Per-Module Intra-Balancing Activity", 0, 29, 24, 7,
     f"SELECT \"timestamp\" AS \"time\", {INTRABALANCE_COLS} FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1",
     unit="none", color_min=0, color_max=1))
