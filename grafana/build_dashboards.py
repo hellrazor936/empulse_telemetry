@@ -494,9 +494,16 @@ drive_panels.append(stat_panel(6, "Odometer (End)", 20, 0, 4, 4,
     "SELECT round(odometer_end_mi * 1.609344, 1) FROM sessions WHERE source_file = '$session'", unit="suffix:km"))
 
 tf = "$__timeFilter(\"timestamp\")"
-drive_panels.append(ts_panel(7, "Speed & RPM", 0, 4, 12, 8,
-    f"SELECT \"timestamp\" AS \"time\", speed_mph * 1.609344 AS speed_kmh, rpm FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1",
-    overrides=[{"matcher": {"id": "byName", "options": "speed_kmh"}, "properties": [{"id": "unit", "value": "velocitykmh"}]}]))
+# gear (from gear_status, E-record) plotted on its own right-hand axis -- its 0-6 range
+# would be invisible against speed/RPM otherwise.
+drive_panels.append(ts_panel(7, "Speed & RPM & Gear", 0, 4, 12, 8,
+    f"""SELECT dt."timestamp" AS "time", speed_mph * 1.609344 AS speed_kmh, rpm, gs.gear
+FROM drive_telemetry dt LEFT JOIN gear_status gs ON gs.source_file = dt.source_file AND gs.timestamp = dt.timestamp
+WHERE dt.source_file = '$session' AND $__timeFilter(dt."timestamp") ORDER BY 1""",
+    overrides=[
+        {"matcher": {"id": "byName", "options": "speed_kmh"}, "properties": [{"id": "unit", "value": "velocitykmh"}]},
+        {"matcher": {"id": "byName", "options": "gear"}, "properties": [{"id": "custom.axisPlacement", "value": "right"}, {"id": "max", "value": 6}]},
+    ]))
 # brake_applied (from gear_status, E-record) scaled to 0/100 so it overlays legibly on the
 # same 0-100 throttle_pct axis -- a flat 100 band whenever the brake is pressed.
 drive_panels.append(ts_panel(8, "Motor / Air Temp & Throttle & Brake", 12, 4, 12, 8,
@@ -570,14 +577,6 @@ drive_panels.append({
     "title": "BMS Fault Flag (meaning unconfirmed)", "datasource": ds,
     "gridPos": {"x": 0, "y": 70, "w": 24, "h": 4},
     "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", bms_fault_flag FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1")],
-    "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
-})
-# E-record byte 2, bits 0-2 -- selected gear (0=neutral, 1-6), see decode_empulse_logs.py.
-drive_panels.append({
-    "id": 23, "type": "state-timeline",
-    "title": "Gear", "datasource": ds,
-    "gridPos": {"x": 0, "y": 74, "w": 24, "h": 4},
-    "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", gear FROM gear_status WHERE source_file = '$session' AND {tf} ORDER BY 1")],
     "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
 })
 dash_drive = dashboard(UID_DRIVE, "Empulse R -- Session Details", drive_panels, [session_var("session", "drive")])
