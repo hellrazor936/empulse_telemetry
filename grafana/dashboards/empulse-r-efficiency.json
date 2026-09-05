@@ -1,0 +1,334 @@
+{
+  "uid": "empulse-r-efficiency",
+  "title": "Empulse R -- Efficiency",
+  "tags": [
+    "brammo"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "graphTooltip": 2,
+  "time": {
+    "from": "2014-01-01",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Avg. Range at 100% SoC (deep-depletion drives, >=30% SoC used)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "suffix:km"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Avg. Range at 100% SoC (all qualifying drives -- biased high, see below)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(sum(distance_km) / sum(soc_used_pct) * 100) FROM drive_range_estimates WHERE $__timeFilter(started_at)",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "suffix:km"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Deep-Depletion Drives (>=30% SoC used)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT count(*) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Range by Depletion Depth (shows the extrapolation bias)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT\n  CASE\n    WHEN soc_used_pct < 15 THEN '5-15%'\n    WHEN soc_used_pct < 30 THEN '15-30%'\n    WHEN soc_used_pct < 50 THEN '30-50%'\n    ELSE '50%+'\n  END AS soc_used,\n  count(*) AS n_drives,\n  round(avg(avg_speed_kmh),1) AS avg_speed_kmh,\n  round(sum(distance_km)) AS total_km,\n  round(sum(distance_km) / sum(soc_used_pct) * 100) AS range_at_100pct_km\nFROM drive_range_estimates\nWHERE $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(soc_used_pct)",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_speed_kmh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "velocitykmh"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:km"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "range_at_100pct_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:km"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Range by Average Riding Speed (drag scales ~v^2)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT\n  CASE\n    WHEN avg_speed_kmh < 30 THEN '<30 km/h'\n    WHEN avg_speed_kmh < 45 THEN '30-45 km/h'\n    WHEN avg_speed_kmh < 60 THEN '45-60 km/h'\n    ELSE '60+ km/h'\n  END AS avg_speed,\n  count(*) AS n_drives,\n  round(avg(range_at_100pct_km)) AS avg_range_at_100pct_km,\n  round(sum(distance_km) / sum(soc_used_pct) * 100) AS weighted_range_at_100pct_km\nFROM drive_range_estimates\nWHERE $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_speed_kmh)",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_range_at_100pct_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:km"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "weighted_range_at_100pct_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:km"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Range by Ambient Temperature (avg speed shown to rule out a speed confound)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT\n  CASE\n    WHEN avg_air_temp_c < 5 THEN '<5C'\n    WHEN avg_air_temp_c < 15 THEN '5-15C'\n    WHEN avg_air_temp_c < 25 THEN '15-25C'\n    ELSE '25C+'\n  END AS air_temp,\n  count(*) AS n_drives,\n  round(avg(avg_air_temp_c),1) AS avg_temp_c,\n  round(avg(avg_speed_kmh),1) AS avg_speed_kmh,\n  round(sum(distance_km) / sum(soc_used_pct) * 100) AS weighted_range_at_100pct_km\nFROM drive_range_estimates\nWHERE avg_air_temp_c IS NOT NULL AND $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_air_temp_c)",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_temp_c"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_speed_kmh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "velocitykmh"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "weighted_range_at_100pct_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:km"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

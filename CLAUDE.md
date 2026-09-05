@@ -52,3 +52,7 @@ single line of SQL or Python**:
 - **Dashboard changes always go through `grafana/build_dashboards.py`**, not
   just made in the Grafana UI and left there -- otherwise the UI state and
   the committed code drift apart.
+- **After running `build_dashboards.py`, commit the regenerated
+  `grafana/dashboards/*.json`** (one file per dashboard, written as a side
+  effect of running the script) alongside the script change -- they're the
+  reviewable, diffable artifact; don't hand-edit them.

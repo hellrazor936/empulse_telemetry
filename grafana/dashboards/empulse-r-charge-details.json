@@ -1,0 +1,556 @@
+{
+  "uid": "empulse-r-charge-details",
+  "title": "Empulse R -- Charge Details",
+  "tags": [
+    "brammo"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "graphTooltip": 2,
+  "time": {
+    "from": "now-10y",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "session",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bfx97xdyvr6dce"
+        },
+        "query": {
+          "rawSql": "SELECT source_file AS __value, source_file || ' -- ' || to_char(started_at,'YYYY-MM-DD HH24:MI') || ' (' || round(extract(epoch from duration)/60) || ' min)' AS __text FROM sessions WHERE session_type = 'charge' ORDER BY started_at DESC",
+          "format": "table"
+        },
+        "refresh": 1,
+        "sort": 0,
+        "includeAll": false,
+        "multi": false,
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Duration",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(extract(epoch from duration)/60,1) FROM sessions WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "m"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "SoC Start",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT min_soc_pct FROM sessions WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "SoC End",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT max_soc_pct FROM sessions WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Estimated Capacity (Ah)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT estimated_capacity_ah FROM charge_capacity_estimates WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "amph"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Estimated Capacity (Wh)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT estimated_capacity_wh FROM charge_capacity_estimates WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "watth"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Avg Pack Voltage",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT avg_pack_voltage_v FROM charge_capacity_estimates WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "volt"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "SoC & Pack Voltage",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", overall_soc_pct, pack_voltage_v FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Per-Module Charge Current",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_current_a, module2_current_a, module3_current_a, module4_current_a, module5_current_a, module6_current_a, module7_current_a FROM module_current_temp WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          },
+          "unit": "amp"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Cell Imbalance & Cell Temp Range",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", cell_imbalance_mv, min_cell_temp_c, max_cell_temp_c FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Per-Module Cell Temp",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_cell_temp_c, module2_cell_temp_c, module3_cell_temp_c, module4_cell_temp_c, module5_cell_temp_c, module6_cell_temp_c, module7_cell_temp_c FROM module_current_temp WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "heatmap",
+      "title": "Cell Voltage Heatmap (28 cells) -- watch balancing at top of charge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_cell1_v, module1_cell2_v, module1_cell3_v, module1_cell4_v, module2_cell1_v, module2_cell2_v, module2_cell3_v, module2_cell4_v, module3_cell1_v, module3_cell2_v, module3_cell3_v, module3_cell4_v, module4_cell1_v, module4_cell2_v, module4_cell3_v, module4_cell4_v, module5_cell1_v, module5_cell2_v, module5_cell3_v, module5_cell4_v, module6_cell1_v, module6_cell2_v, module6_cell3_v, module6_cell4_v, module7_cell1_v, module7_cell2_v, module7_cell3_v, module7_cell4_v FROM cell_voltages WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "color": {
+          "mode": "scheme",
+          "scheme": "RdYlGn",
+          "reverse": true,
+          "steps": 64
+        },
+        "yAxis": {
+          "unit": "volt"
+        },
+        "cellGap": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "heatmap",
+      "title": "Per-Module Intra-Balancing Activity",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_intrabalance_active, module2_intrabalance_active, module3_intrabalance_active, module4_intrabalance_active, module5_intrabalance_active, module6_intrabalance_active, module7_intrabalance_active FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "color": {
+          "mode": "scheme",
+          "scheme": "RdYlGn",
+          "reverse": true,
+          "steps": 64,
+          "min": 0,
+          "max": 1
+        },
+        "yAxis": {
+          "unit": "none"
+        },
+        "cellGap": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "table",
+      "title": "Other Records (raw diagnostic codes)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", code, length, data_ascii_or_hex FROM other_records WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

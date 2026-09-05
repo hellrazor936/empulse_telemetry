@@ -1,4 +1,5 @@
 import json
+import os
 
 DS_UID = "bfx97xdyvr6dce"
 FOLDER_UID = "bfx97yq6k77y8d"
@@ -635,6 +636,14 @@ charge_panels.append(table_panel(12, "Other Records (raw diagnostic codes)", 0, 
 
 dash_charge = dashboard(UID_CHARGE, "Empulse R -- Charge Details", charge_panels, [session_var("session", "charge")])
 
+# Also written to grafana/dashboards/<uid>.json (checked into the repo) so the dashboard
+# definitions are reviewable in a diff, not just reconstructable by re-running this script.
+dashboards_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboards")
+os.makedirs(dashboards_dir, exist_ok=True)
+
 for d in (dash_sessions, dash_efficiency, dash_drive, dash_charge):
     payload = {"dashboard": d, "folderUid": FOLDER_UID, "overwrite": True}
     print(json.dumps(payload))
+    with open(os.path.join(dashboards_dir, f"{d['uid']}.json"), "w") as f:
+        json.dump(d, f, indent=2)
+        f.write("\n")

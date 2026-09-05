@@ -1,0 +1,1060 @@
+{
+  "uid": "empulse-r-session-details",
+  "title": "Empulse R -- Session Details",
+  "tags": [
+    "brammo"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "graphTooltip": 2,
+  "time": {
+    "from": "now-10y",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "session",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bfx97xdyvr6dce"
+        },
+        "query": {
+          "rawSql": "SELECT source_file AS __value, source_file || ' -- ' || to_char(started_at,'YYYY-MM-DD HH24:MI') || ' (' || round(extract(epoch from duration)/60) || ' min)' AS __text FROM sessions WHERE session_type = 'drive' ORDER BY started_at DESC",
+          "format": "table"
+        },
+        "refresh": 1,
+        "sort": 0,
+        "includeAll": false,
+        "multi": false,
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Duration",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(extract(epoch from duration)/60,1) FROM sessions WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "m"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Distance",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round((odometer_end_mi - odometer_start_mi) * 1.609344, 1) FROM sessions WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "lengthkm"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Max Speed",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(max_speed_mph * 1.609344, 1) FROM sessions WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "velocitykmh"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Min SoC",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT min_soc_pct FROM sessions WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Max SoC",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT max_soc_pct FROM sessions WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Odometer (End)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(odometer_end_mi * 1.609344, 1) FROM sessions WHERE source_file = '$session'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "suffix:km"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Speed & RPM & Gear",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT dt.\"timestamp\" AS \"time\", speed_mph * 1.609344 AS speed_kmh, rpm, gs.gear\nFROM drive_telemetry dt LEFT JOIN gear_status gs ON gs.source_file = dt.source_file AND gs.timestamp = dt.timestamp\nWHERE dt.source_file = '$session' AND $__timeFilter(dt.\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "speed_kmh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "velocitykmh"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "gear"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "max",
+                "value": 6
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 20
+              },
+              {
+                "id": "custom.lineInterpolation",
+                "value": "stepAfter"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Motor / Air Temp & Throttle & Brake",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT dt.\"timestamp\" AS \"time\", (motor_temp_f - 32) * 5.0/9.0 AS motor_temp_c,\n    (air_temp_f - 32) * 5.0/9.0 AS air_temp_c, throttle_pct, gs.brake_applied * 100 AS brake_applied_pct\nFROM drive_telemetry dt LEFT JOIN gear_status gs ON gs.source_file = dt.source_file AND gs.timestamp = dt.timestamp\nWHERE dt.source_file = '$session' AND $__timeFilter(dt.\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "motor_temp_c"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "air_temp_c"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "brake_applied_pct"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 20
+              },
+              {
+                "id": "custom.lineInterpolation",
+                "value": "stepAfter"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "SoC / Pack Voltage / Cell V Range",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", overall_soc_pct, pack_voltage_v, high_cell_v, low_cell_v FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Cell Imbalance & Cell Temp Range",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", cell_imbalance_mv, min_cell_temp_c, max_cell_temp_c FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Per-Module SoC",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_soc_pct, module2_soc_pct, module3_soc_pct, module4_soc_pct, module5_soc_pct, module6_soc_pct, module7_soc_pct FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Module-to-Module SoC Spread",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", GREATEST(module1_soc_pct, module2_soc_pct, module3_soc_pct, module4_soc_pct, module5_soc_pct, module6_soc_pct, module7_soc_pct) - LEAST(module1_soc_pct, module2_soc_pct, module3_soc_pct, module4_soc_pct, module5_soc_pct, module6_soc_pct, module7_soc_pct) AS module_spread_pct FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Per-Module Current",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_current_a, module2_current_a, module3_current_a, module4_current_a, module5_current_a, module6_current_a, module7_current_a FROM module_current_temp WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          },
+          "unit": "amp"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Per-Module Cell Temp",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_cell_temp_c, module2_cell_temp_c, module3_cell_temp_c, module4_cell_temp_c, module5_cell_temp_c, module6_cell_temp_c, module7_cell_temp_c FROM module_current_temp WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "heatmap",
+      "title": "Cell Voltage Heatmap (28 cells)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_cell1_v, module1_cell2_v, module1_cell3_v, module1_cell4_v, module2_cell1_v, module2_cell2_v, module2_cell3_v, module2_cell4_v, module3_cell1_v, module3_cell2_v, module3_cell3_v, module3_cell4_v, module4_cell1_v, module4_cell2_v, module4_cell3_v, module4_cell4_v, module5_cell1_v, module5_cell2_v, module5_cell3_v, module5_cell4_v, module6_cell1_v, module6_cell2_v, module6_cell3_v, module6_cell4_v, module7_cell1_v, module7_cell2_v, module7_cell3_v, module7_cell4_v FROM cell_voltages WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "color": {
+          "mode": "scheme",
+          "scheme": "RdYlGn",
+          "reverse": true,
+          "steps": 64
+        },
+        "yAxis": {
+          "unit": "volt"
+        },
+        "cellGap": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 16,
+      "type": "heatmap",
+      "title": "Per-Module Intra-Balancing Activity",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", module1_intrabalance_active, module2_intrabalance_active, module3_intrabalance_active, module4_intrabalance_active, module5_intrabalance_active, module6_intrabalance_active, module7_intrabalance_active FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "calculate": false,
+        "color": {
+          "mode": "scheme",
+          "scheme": "RdYlGn",
+          "reverse": true,
+          "steps": 64,
+          "min": 0,
+          "max": 1
+        },
+        "yAxis": {
+          "unit": "none"
+        },
+        "cellGap": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "type": "state-timeline",
+      "title": "Kickstand",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", kickstand FROM status_flags WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 18,
+      "type": "table",
+      "title": "Other Records (raw diagnostic codes)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 52,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", code, length, data_ascii_or_hex FROM other_records WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Motor Voltage / Current / Power",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 58,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", motor_voltage_vrms, motor_current_arms, motor_power_kw FROM drive_telemetry WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "motor_voltage_vrms"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "volt"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "motor_current_arms"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "amp"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "motor_power_kw"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "kwatt"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Estimated Range (dash indicator)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 58,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", estimated_range_mi * 1.609344 AS estimated_range_km FROM drive_telemetry WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "estimated_range_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "lengthkm"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "state-timeline",
+      "title": "Motor Controller Fault Code (56 = S56 Motor Low Voltage)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 24,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", mc_fault_code FROM drive_telemetry WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 22,
+      "type": "state-timeline",
+      "title": "BMS Fault Flag (meaning unconfirmed)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 70,
+        "w": 24,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", bms_fault_flag FROM battery_soc WHERE source_file = '$session' AND $__timeFilter(\"timestamp\") ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {}
+    }
+  ]
+}

@@ -1,0 +1,1229 @@
+{
+  "uid": "empulse-r-sessions",
+  "title": "Empulse R -- Sessions",
+  "tags": [
+    "brammo"
+  ],
+  "timezone": "utc",
+  "schemaVersion": 39,
+  "version": 1,
+  "graphTooltip": 2,
+  "time": {
+    "from": "2014-01-01",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "min_duration_min",
+        "type": "textbox",
+        "label": "Min duration (min)",
+        "query": "0",
+        "current": {
+          "value": "0",
+          "text": "0"
+        }
+      },
+      {
+        "name": "min_distance_km",
+        "type": "textbox",
+        "label": "Min distance (km)",
+        "query": "0",
+        "current": {
+          "value": "0",
+          "text": "0"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Drive Sessions",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT count(*) FROM sessions WHERE session_type = 'drive'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Charge Sessions",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT count(*) FROM sessions WHERE session_type = 'charge'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total Distance",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(sum(odometer_end_mi - odometer_start_mi) * 1.609344) FROM sessions WHERE session_type = 'drive'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "suffix:km"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Total Ride Time",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(sum(extract(epoch from duration))/3600,0) FROM sessions WHERE session_type = 'drive'",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "h"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Logged Since",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT min(started_at) FROM sessions",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "dateTimeAsLocal"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Logged Until",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT max(ended_at) FROM sessions",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "dateTimeAsLocal"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Drive Sessions (click a row to open)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT\n  source_file, started_at, ended_at,\n  round(extract(epoch from duration)/60,1) AS duration_min,\n  round((odometer_end_mi - odometer_start_mi) * 1.609344, 1) AS distance_km,\n  round(max_speed_mph * 1.609344, 1) AS max_speed_kmh,\n  min_soc_pct, max_soc_pct,\n  extract(epoch from started_at)*1000 AS started_epoch,\n  extract(epoch from ended_at)*1000 AS ended_epoch\nFROM sessions WHERE session_type = 'drive'\n  AND $__timeFilter(started_at)\n  AND extract(epoch from duration)/60 >= ${min_duration_min}\n  AND COALESCE((odometer_end_mi - odometer_start_mi) * 1.609344, 0) >= ${min_distance_km}\nORDER BY started_at DESC",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "started_at"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Date"
+              },
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open ride",
+                    "targetBlank": false,
+                    "url": "/d/empulse-r-session-details/empulse-r-session-details?orgId=1&var-session=${__data.fields.source_file}&from=${__data.fields.started_epoch.numeric}&to=${__data.fields.ended_epoch.numeric}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "started_epoch"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ended_epoch"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "distance_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "lengthkm"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max_speed_kmh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "velocitykmh"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duration_min"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Charge Sessions (click a row to open)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT\n  s.source_file, s.started_at, s.ended_at,\n  round(extract(epoch from s.duration)/60,1) AS duration_min,\n  s.min_soc_pct, s.max_soc_pct,\n  c.estimated_capacity_ah, c.estimated_capacity_wh,\n  extract(epoch from s.started_at)*1000 AS started_epoch,\n  extract(epoch from s.ended_at)*1000 AS ended_epoch\nFROM sessions s\nLEFT JOIN charge_capacity_estimates c USING (source_file)\nWHERE s.session_type = 'charge'\n  AND $__timeFilter(s.started_at)\n  AND extract(epoch from s.duration)/60 >= ${min_duration_min}\nORDER BY s.started_at DESC",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "started_at"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Date"
+              },
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Open charge",
+                    "targetBlank": false,
+                    "url": "/d/empulse-r-charge-details/empulse-r-charge-details?orgId=1&var-session=${__data.fields.source_file}&from=${__data.fields.started_epoch.numeric}&to=${__data.fields.ended_epoch.numeric}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "started_epoch"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ended_epoch"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "duration_min"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "m"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "estimated_capacity_ah"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "amph"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "estimated_capacity_wh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watth"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Estimated Pack Capacity Over Time (scaled to 10 kWh nominal at pack start)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 18,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "WITH baseline AS (\n  SELECT avg(estimated_capacity_wh) AS b FROM (\n    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5\n  ) x\n),\nscaled AS (\n  SELECT started_at, estimated_capacity_wh * (10000.0 / baseline.b) AS estimated_capacity_wh\n  FROM charge_capacity_estimates, baseline\n)\nSELECT started_at AS \"time\", estimated_capacity_wh,\n  avg(estimated_capacity_wh) OVER () AS average_capacity_wh,\n  estimated_capacity_wh / 10000.0 * 100 AS pct_of_baseline\nFROM scaled\nWHERE $__timeFilter(started_at)\nORDER BY started_at",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "estimated_capacity_wh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watth"
+              },
+              {
+                "id": "displayName",
+                "value": "Capacity"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "average_capacity_wh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watth"
+              },
+              {
+                "id": "displayName",
+                "value": "Average"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 3
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pct_of_baseline"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Capacity Fade / Year",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 22,
+        "w": 6,
+        "h": 3
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "WITH baseline AS (\n  SELECT avg(estimated_capacity_wh) AS b FROM (\n    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5\n  ) x\n)\nSELECT regr_slope(estimated_capacity_wh, extract(epoch from started_at)/31557600.0) / baseline.b * 100 AS pct_per_year\nFROM charge_capacity_estimates, baseline GROUP BY baseline.b",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Capacity Fade (Total, earliest vs. most recent)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 25,
+        "w": 6,
+        "h": 3
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "WITH earliest AS (\n  SELECT avg(estimated_capacity_wh) AS v FROM (\n    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5\n  ) x\n), recent AS (\n  SELECT avg(estimated_capacity_wh) AS v FROM (\n    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at DESC LIMIT 5\n  ) x\n)\nSELECT (recent.v - earliest.v) / earliest.v * 100 AS total_fade_pct\nFROM earliest, recent",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Reliable Capacity Samples",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 28,
+        "w": 6,
+        "h": 3
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT count(*) FROM charge_capacity_estimates",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Module-to-Module SoC Spread Over Time (max gap between weakest & strongest module per session)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 18,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT started_at AS \"time\", max_module_spread_pct,\n  avg(max_module_spread_pct) OVER () AS average_spread_pct\nFROM module_soc_spread\nWHERE $__timeFilter(started_at)\nORDER BY started_at",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max_module_spread_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "displayName",
+                "value": "Spread"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "average_spread_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "displayName",
+                "value": "Average"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 3
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Latest Module Spread",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 31,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT max_module_spread_pct FROM module_soc_spread ORDER BY started_at DESC LIMIT 1",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Worst Module Spread Ever",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 35,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT max(max_module_spread_pct) FROM module_soc_spread",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "percent"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "End-of-Charge Cell Voltage Imbalance Over Time (charges reaching >=95% SoC)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 18,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT ended_at AS \"time\", cell_imbalance_mv / 1000.0 AS cell_imbalance_v,\n  avg(cell_imbalance_mv / 1000.0) OVER () AS average_imbalance_v\nFROM eoc_cell_imbalance\nWHERE $__timeFilter(ended_at)\nORDER BY ended_at",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cell_imbalance_v"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "volt"
+              },
+              {
+                "id": "displayName",
+                "value": "Imbalance"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "average_imbalance_v"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "volt"
+              },
+              {
+                "id": "displayName",
+                "value": "Average"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 3
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Full-Charge Sessions Tracked",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 40,
+        "w": 6,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT count(*) FROM eoc_cell_imbalance",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Per-Module Intra-Balancing Frequency Over Time (% of samples actively balancing)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 49,
+        "w": 18,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT started_at AS \"time\",\n  module1_balance_frac * 100 AS module1_pct, module2_balance_frac * 100 AS module2_pct,\n  module3_balance_frac * 100 AS module3_pct, module4_balance_frac * 100 AS module4_pct,\n  module5_balance_frac * 100 AS module5_pct, module6_balance_frac * 100 AS module6_pct,\n  module7_balance_frac * 100 AS module7_pct\nFROM module_balancing_summary\nWHERE $__timeFilter(started_at)\nORDER BY started_at",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "type": "table",
+      "title": "Average Balancing Frequency by Module (All-Time)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 49,
+        "w": 6,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT * FROM (\n  SELECT 1 AS module, avg(module1_balance_frac) * 100 AS avg_balance_pct FROM module_balancing_summary\n  UNION ALL SELECT 2, avg(module2_balance_frac) * 100 FROM module_balancing_summary\n  UNION ALL SELECT 3, avg(module3_balance_frac) * 100 FROM module_balancing_summary\n  UNION ALL SELECT 4, avg(module4_balance_frac) * 100 FROM module_balancing_summary\n  UNION ALL SELECT 5, avg(module5_balance_frac) * 100 FROM module_balancing_summary\n  UNION ALL SELECT 6, avg(module6_balance_frac) * 100 FROM module_balancing_summary\n  UNION ALL SELECT 7, avg(module7_balance_frac) * 100 FROM module_balancing_summary\n) x ORDER BY avg_balance_pct DESC",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_balance_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 20,
+      "type": "table",
+      "title": "Motor Controller Fault Events (S56 = Motor Low Voltage)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 58,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT \"timestamp\" AS \"time\", source_file, speed_mph, rpm, motor_voltage_vrms, motor_current_arms, mc_fault_code\nFROM drive_telemetry WHERE mc_fault_code <> 0 AND $__timeFilter(\"timestamp\") ORDER BY \"timestamp\" ",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "BMS Fault Flag Events Over Time (weekly count, meaning unconfirmed)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 67,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT time_bucket('7 days', \"timestamp\") AS \"time\", count(*) AS events\nFROM battery_soc WHERE bms_fault_flag = 1 AND $__timeFilter(\"timestamp\") GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "name": "Long idle / storage periods (>=30d)",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "bfx97xdyvr6dce"
+        },
+        "enable": true,
+        "iconColor": "orange",
+        "target": {
+          "rawSql": "SELECT idle_from AS time, idle_until AS timeEnd, 'Idle ' || round(idle_days) || 'd at ' || round(soc_at_standstill,0) || '% SoC' AS text FROM long_idle_periods ORDER BY idle_from",
+          "format": "table"
+        }
+      }
+    ]
+  }
+}
