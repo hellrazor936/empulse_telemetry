@@ -1,0 +1,20 @@
+# Raw telemetry data -- never belongs in this repo
+*.csv
+*.DRV
+*.CHG
+*.drv
+*.chg
+LOGS/
+LOGS_csv/
+
+# Local secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db

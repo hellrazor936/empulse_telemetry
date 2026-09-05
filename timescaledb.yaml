@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: brammo-timescaledb
+  namespace: brammo
+  labels:
+    app: brammo-timescaledb
+spec:
+  serviceName: brammo-timescaledb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: brammo-timescaledb
+  template:
+    metadata:
+      labels:
+        app: brammo-timescaledb
+    spec:
+      containers:
+        - name: timescaledb
+          image: timescale/timescaledb:2.29.2-pg16
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: db
+          env:
+            - name: POSTGRES_USER
+              value: brammo
+            - name: POSTGRES_DB
+              value: brammo
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: brammo-timescaledb-auth
+                  key: password
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: timescaledb-data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: timescaledb-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: longhorn
+        resources:
+          requests:
+            storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: brammo-timescaledb
+  namespace: brammo
+spec:
+  selector:
+    app: brammo-timescaledb
+  ports:
+    - name: db
+      port: 5432
+      targetPort: 5432
