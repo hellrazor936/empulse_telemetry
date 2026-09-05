@@ -153,7 +153,8 @@ per_session AS (
         min("timestamp") AS started_at,
         sum(COALESCE(trapz_current_a * dt_s, 0)) / 3600.0 AS charged_ah,
         sum(COALESCE(trapz_power_w * dt_s, 0)) / 3600.0 AS charged_wh,
-        max(abs(soc_step)) AS max_abs_soc_step
+        max(abs(soc_step)) AS max_abs_soc_step,
+        avg(pack_voltage_v) AS avg_pack_voltage_v
     FROM integrated
     GROUP BY source_file
 ),
@@ -174,7 +175,8 @@ SELECT
     se.soc_end,
     (se.soc_end - ss.soc_start) AS soc_delta,
     p.charged_ah / ((se.soc_end - ss.soc_start) / 100.0) AS estimated_capacity_ah,
-    p.charged_wh / ((se.soc_end - ss.soc_start) / 100.0) AS estimated_capacity_wh
+    p.charged_wh / ((se.soc_end - ss.soc_start) / 100.0) AS estimated_capacity_wh,
+    p.avg_pack_voltage_v
 FROM per_session p
 JOIN soc_start ss USING (source_file)
 JOIN soc_end se USING (source_file)
