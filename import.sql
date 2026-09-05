@@ -198,6 +198,28 @@ FROM ordered
 WHERE next_started_at - ended_at >= interval '30 days'
 ORDER BY idle_from;
 
+-- Per-session, per-module fraction of samples where that module's cells were actively
+-- intra-balancing (module1..7_intrabalance_active in battery_soc, decoded from the B-record's
+-- byte 31 bitmask). Ties into the module-imbalance investigation: do the modules that turned
+-- out weaker (wider SoC spread, earlier stranding) also balance more often?
+DROP TABLE IF EXISTS module_balancing_summary;
+CREATE TABLE module_balancing_summary AS
+SELECT
+    source_file,
+    session_type,
+    min("timestamp") AS started_at,
+    count(*) AS sample_count,
+    avg(module1_intrabalance_active) AS module1_balance_frac,
+    avg(module2_intrabalance_active) AS module2_balance_frac,
+    avg(module3_intrabalance_active) AS module3_balance_frac,
+    avg(module4_intrabalance_active) AS module4_balance_frac,
+    avg(module5_intrabalance_active) AS module5_balance_frac,
+    avg(module6_intrabalance_active) AS module6_balance_frac,
+    avg(module7_intrabalance_active) AS module7_balance_frac
+FROM battery_soc
+GROUP BY source_file, session_type
+ORDER BY min("timestamp");
+
 -- Module-to-module SoC spread per session: the widest gap between the strongest and weakest
 -- of the 7 modules' own SoC% at any point in the session. Found via a 2024 stranding
 -- investigation that overall_soc_pct can read misleadingly low (e.g. 8.6%) while some modules
@@ -283,5 +305,6 @@ UNION ALL SELECT 'sessions', count(*) FROM sessions
 UNION ALL SELECT 'charge_capacity_estimates', count(*) FROM charge_capacity_estimates
 UNION ALL SELECT 'long_idle_periods', count(*) FROM long_idle_periods
 UNION ALL SELECT 'module_soc_spread', count(*) FROM module_soc_spread
+UNION ALL SELECT 'module_balancing_summary', count(*) FROM module_balancing_summary
 UNION ALL SELECT 'eoc_cell_imbalance', count(*) FROM eoc_cell_imbalance
 UNION ALL SELECT 'drive_range_estimates', count(*) FROM drive_range_estimates;

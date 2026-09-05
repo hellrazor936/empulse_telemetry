@@ -119,6 +119,16 @@ def decode_B(payload):
         row["bms_firmware_rev"] = f"{payload[40]:02x}.{payload[41]:02x}.{payload[42]:02x}"
         row["bms_customer_code"] = decode_ascii(payload[45:48])
 
+        # Byte 31 = "Module Intrabalance Active" bitmask (bit0=module1 .. bit6=module7),
+        # verified 100% (1641/1641 frames, incl. all 469 active-balancing frames) against
+        # an official-tool decode of 58CD5479.DRV (2024-06-13 10-35-50.csv), one frame
+        # offset between the two exports. "Module Interbalance Active" (between modules)
+        # exists in the official tool's output too but was always 0 in every reference
+        # file we had, so its byte offset couldn't be reverse-engineered the same way.
+        intrabalance_byte = payload[31]
+        for i in range(NUM_BATTERIES):
+            row[f"module{i+1}_intrabalance_active"] = (intrabalance_byte >> i) & 1
+
         cell_volts = [struct.unpack_from(">H", payload, 48 + 2 * k)[0] / 1000.0
                       for k in range(28)]
         currents = [struct.unpack_from(">h", payload, 112 + 2 * k)[0] / 100.0
@@ -169,10 +179,16 @@ def main():
     out_dir = sys.argv[2] if len(sys.argv) > 2 else os.path.expanduser("~/LOGS_csv")
     os.makedirs(out_dir, exist_ok=True)
 
-    files = sorted(glob.glob(os.path.join(log_dir, "*.DRV")) +
-                    glob.glob(os.path.join(log_dir, "*.CHG")) +
-                    glob.glob(os.path.join(log_dir, "*.drv")) +
-                    glob.glob(os.path.join(log_dir, "*.chg")))
+    # Deduped by lowercased path -- on case-insensitive filesystems (Windows, default macOS)
+    # "*.DRV" and "*.drv" glob the same files twice, silently doubling every output row.
+    found = (glob.glob(os.path.join(log_dir, "*.DRV")) +
+             glob.glob(os.path.join(log_dir, "*.CHG")) +
+             glob.glob(os.path.join(log_dir, "*.drv")) +
+             glob.glob(os.path.join(log_dir, "*.chg")))
+    seen = {}
+    for p in found:
+        seen[os.path.normcase(os.path.abspath(p))] = p
+    files = sorted(seen.values())
 
     if not files:
         print(f"No .DRV/.CHG files found in {log_dir}")
@@ -191,7 +207,8 @@ def main():
     soc_fields = ["source_file", "session_type", "timestamp", "overall_soc_pct"] + \
                  [f"module{i}_soc_pct" for i in range(1, NUM_BATTERIES + 1)] + \
                  ["pack_voltage_v", "high_cell_v", "low_cell_v", "cell_imbalance_mv",
-                  "min_cell_temp_c", "max_cell_temp_c", "bms_firmware_rev", "bms_customer_code"]
+                  "min_cell_temp_c", "max_cell_temp_c", "bms_firmware_rev", "bms_customer_code"] + \
+                 [f"module{i}_intrabalance_active" for i in range(1, NUM_BATTERIES + 1)]
     cells_fields = ["source_file", "session_type", "timestamp"] + \
                    [f"module{m}_cell{c}_v" for m in range(1, NUM_BATTERIES + 1) for c in range(1, 5)]
     modtemp_fields = ["source_file", "session_type", "timestamp"] + \

@@ -1,10 +1,7 @@
 import json
-import os
 
-# Defaults match this homelab's existing Grafana folder/datasource; override via env vars for
-# a fresh install (e.g. docker-compose.yml here) -- see README "Running with Docker".
-DS_UID = os.environ.get("GRAFANA_DS_UID", "bfx97xdyvr6dce")
-FOLDER_UID = os.environ.get("GRAFANA_FOLDER_UID", "bfx97yq6k77y8d")
+DS_UID = "bfx97xdyvr6dce"
+FOLDER_UID = "bfx97yq6k77y8d"
 
 UID_SESSIONS = "empulse-r-sessions"
 UID_DRIVE = "empulse-r-session-details"
@@ -53,24 +50,33 @@ def table_panel(id, title, x, y, w, h, sql, overrides=None):
     }
 
 
-def heatmap_panel(id, title, x, y, w, h, sql):
+def heatmap_panel(id, title, x, y, w, h, sql, unit="volt", color_min=None, color_max=None):
+    color = {"mode": "scheme", "scheme": "RdYlGn", "reverse": True, "steps": 64}
+    if color_min is not None:
+        color["min"] = color_min
+    if color_max is not None:
+        color["max"] = color_max
     return {
         "id": id, "type": "heatmap", "title": title, "datasource": ds,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "targets": [sql_target(sql)],
         "options": {
             "calculate": False,
-            "color": {"mode": "scheme", "scheme": "RdYlGn", "reverse": True, "steps": 64},
-            "yAxis": {"unit": "volt"},
+            "color": color,
+            "yAxis": {"unit": unit},
             "cellGap": 1,
         },
-        "fieldConfig": {"defaults": {"unit": "volt"}, "overrides": []},
+        "fieldConfig": {"defaults": {"unit": unit}, "overrides": []},
     }
 
 
 def dashboard(uid, title, panels, variables, time_from="now-10y", annotations=None):
     d = {
-        "uid": uid, "title": title, "tags": ["brammo"], "timezone": "browser",
+        # "utc" (not "browser"): our timestamp columns are timezone-naive local (bike clock)
+        # values. The postgres driver treats them as UTC internally; with timezone="browser"
+        # Grafana then converts that to the viewer's local zone (e.g. +2h in CEST), showing a
+        # shifted time. "utc" renders the value with no conversion, matching the raw data.
+        "uid": uid, "title": title, "tags": ["brammo"], "timezone": "utc",
         "schemaVersion": 39, "version": 1,
         "time": {"from": time_from, "to": "now"},
         "templating": {"list": variables},
@@ -320,6 +326,34 @@ sessions_panels.append(ts_panel(16, "End-of-Charge Cell Voltage Imbalance Over T
 sessions_panels.append(stat_panel(17, "Full-Charge Sessions Tracked", 18, 40, 6, 9,
     "SELECT count(*) FROM eoc_cell_imbalance"))
 
+# module1..7_intrabalance_active in battery_soc is decoded from the B-record's byte 31 bitmask
+# (reverse-engineered against an official-tool decode, see decode_empulse_logs.py). Ties into
+# the module-imbalance investigation: do the modules with the widest SoC spread also balance
+# more often? "Inter-module" balancing exists as a field in the official tool's output too but
+# was never once active across 37+ reference files, so it isn't tracked here.
+balancing_sql = """SELECT started_at AS "time",
+  module1_balance_frac * 100 AS module1_pct, module2_balance_frac * 100 AS module2_pct,
+  module3_balance_frac * 100 AS module3_pct, module4_balance_frac * 100 AS module4_pct,
+  module5_balance_frac * 100 AS module5_pct, module6_balance_frac * 100 AS module6_pct,
+  module7_balance_frac * 100 AS module7_pct
+FROM module_balancing_summary
+ORDER BY started_at"""
+
+sessions_panels.append(ts_panel(18, "Per-Module Intra-Balancing Frequency Over Time (% of samples actively balancing)",
+    0, 49, 18, 9, balancing_sql, unit="percent"))
+
+sessions_panels.append(table_panel(19, "Average Balancing Frequency by Module (All-Time)", 18, 49, 6, 9,
+    """SELECT * FROM (
+  SELECT 1 AS module, avg(module1_balance_frac) * 100 AS avg_balance_pct FROM module_balancing_summary
+  UNION ALL SELECT 2, avg(module2_balance_frac) * 100 FROM module_balancing_summary
+  UNION ALL SELECT 3, avg(module3_balance_frac) * 100 FROM module_balancing_summary
+  UNION ALL SELECT 4, avg(module4_balance_frac) * 100 FROM module_balancing_summary
+  UNION ALL SELECT 5, avg(module5_balance_frac) * 100 FROM module_balancing_summary
+  UNION ALL SELECT 6, avg(module6_balance_frac) * 100 FROM module_balancing_summary
+  UNION ALL SELECT 7, avg(module7_balance_frac) * 100 FROM module_balancing_summary
+) x ORDER BY avg_balance_pct DESC""",
+    overrides=[{"matcher": {"id": "byName", "options": "avg_balance_pct"}, "properties": [{"id": "unit", "value": "percent"}, {"id": "decimals", "value": 1}]}]))
+
 MIN_DURATION_VAR = {
     "name": "min_duration_min",
     "type": "textbox",
@@ -464,13 +498,19 @@ drive_panels.append(ts_panel(14, "Per-Module Cell Temp", 12, 28, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", module1_cell_temp_c, module2_cell_temp_c, module3_cell_temp_c, module4_cell_temp_c, module5_cell_temp_c, module6_cell_temp_c, module7_cell_temp_c FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit="celsius"))
 drive_panels.append(heatmap_panel(15, "Cell Voltage Heatmap (28 cells)", 0, 36, 24, 9,
     f"SELECT \"timestamp\" AS \"time\", {CELL_COLS} FROM cell_voltages WHERE source_file = '$session' AND {tf} ORDER BY 1"))
+# Per-module intra-balancing heatmap: module1..7_intrabalance_active (0/1, from the B-record's
+# byte 31 bitmask -- see decode_empulse_logs.py) shown as one row per module, color = active.
+INTRABALANCE_COLS = ", ".join(f"module{m}_intrabalance_active" for m in range(1, 8))
+drive_panels.append(heatmap_panel(16, "Per-Module Intra-Balancing Activity", 0, 45, 24, 7,
+    f"SELECT \"timestamp\" AS \"time\", {INTRABALANCE_COLS} FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1",
+    unit="none", color_min=0, color_max=1))
 drive_panels.append({
-    "id": 16, "type": "state-timeline", "title": "Kickstand", "datasource": ds,
-    "gridPos": {"x": 0, "y": 45, "w": 12, "h": 6},
+    "id": 17, "type": "state-timeline", "title": "Kickstand", "datasource": ds,
+    "gridPos": {"x": 0, "y": 52, "w": 12, "h": 6},
     "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", kickstand FROM status_flags WHERE source_file = '$session' AND {tf} ORDER BY 1")],
     "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
 })
-drive_panels.append(table_panel(17, "Other Records (raw diagnostic codes)", 12, 45, 12, 6,
+drive_panels.append(table_panel(18, "Other Records (raw diagnostic codes)", 12, 52, 12, 6,
     f"SELECT \"timestamp\" AS \"time\", code, length, data_ascii_or_hex FROM other_records WHERE source_file = '$session' AND {tf} ORDER BY 1"))
 
 dash_drive = dashboard(UID_DRIVE, "Empulse R -- Session Details", drive_panels, [session_var("session", "drive")])
@@ -500,7 +540,10 @@ charge_panels.append(ts_panel(10, "Per-Module Cell Temp", 12, 12, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", module1_cell_temp_c, module2_cell_temp_c, module3_cell_temp_c, module4_cell_temp_c, module5_cell_temp_c, module6_cell_temp_c, module7_cell_temp_c FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit="celsius"))
 charge_panels.append(heatmap_panel(11, "Cell Voltage Heatmap (28 cells) -- watch balancing at top of charge", 0, 20, 24, 9,
     f"SELECT \"timestamp\" AS \"time\", {CELL_COLS} FROM cell_voltages WHERE source_file = '$session' AND {tf} ORDER BY 1"))
-charge_panels.append(table_panel(12, "Other Records (raw diagnostic codes)", 0, 29, 24, 6,
+charge_panels.append(heatmap_panel(13, "Per-Module Intra-Balancing Activity", 0, 29, 24, 7,
+    f"SELECT \"timestamp\" AS \"time\", {INTRABALANCE_COLS} FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1",
+    unit="none", color_min=0, color_max=1))
+charge_panels.append(table_panel(12, "Other Records (raw diagnostic codes)", 0, 36, 24, 6,
     f"SELECT \"timestamp\" AS \"time\", code, length, data_ascii_or_hex FROM other_records WHERE source_file = '$session' AND {tf} ORDER BY 1"))
 
 dash_charge = dashboard(UID_CHARGE, "Empulse R -- Charge Details", charge_panels, [session_var("session", "charge")])

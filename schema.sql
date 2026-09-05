@@ -19,7 +19,16 @@ CREATE TABLE battery_soc (
     min_cell_temp_c numeric,
     max_cell_temp_c numeric,
     bms_firmware_rev text,
-    bms_customer_code text
+    bms_customer_code text,
+    -- Byte 31 of the B-record ("Module Intrabalance Active" bitmask), decoded per module.
+    -- Reverse-engineered against an official-tool decode (see decode_empulse_logs.py).
+    module1_intrabalance_active smallint,
+    module2_intrabalance_active smallint,
+    module3_intrabalance_active smallint,
+    module4_intrabalance_active smallint,
+    module5_intrabalance_active smallint,
+    module6_intrabalance_active smallint,
+    module7_intrabalance_active smallint
 );
 
 CREATE TABLE cell_voltages (
