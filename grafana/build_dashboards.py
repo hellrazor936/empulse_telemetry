@@ -78,8 +78,9 @@ def dashboard(uid, title, panels, variables, time_from="now-10y", annotations=No
         # shifted time. "utc" renders the value with no conversion, matching the raw data.
         "uid": uid, "title": title, "tags": ["brammo"], "timezone": "utc",
         "schemaVersion": 39, "version": 1,
-        # graphTooltip 1 = shared crosshair across all panels on the dashboard.
-        "graphTooltip": 1,
+        # graphTooltip 2 = shared crosshair + shared tooltip (values from all panels)
+        # across the whole dashboard.
+        "graphTooltip": 2,
         "time": {"from": time_from, "to": "now"},
         "templating": {"list": variables},
         "panels": panels,
