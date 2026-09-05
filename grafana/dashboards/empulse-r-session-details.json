@@ -745,8 +745,10 @@
         "color": {
           "mode": "scheme",
           "scheme": "RdYlGn",
-          "reverse": true,
-          "steps": 64
+          "reverse": false,
+          "steps": 64,
+          "min": 3.3,
+          "max": 4.15
         },
         "yAxis": {
           "unit": "volt"
