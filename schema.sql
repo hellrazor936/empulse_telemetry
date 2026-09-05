@@ -109,6 +109,19 @@ CREATE TABLE status_flags (
     kickstand_raw smallint
 );
 
+-- E-record byte 2, verified 100% (10195/10195 samples, 19 sessions) against the official
+-- tool's "AIM Gear Selected" and "AIM Status Bits" columns, one frame offset between
+-- exports (same quirk as several B-record fields). See decode_empulse_logs.py.
+CREATE TABLE gear_status (
+    source_file text NOT NULL,
+    session_type text NOT NULL,
+    "timestamp" timestamp NOT NULL,
+    gear smallint,
+    side_stand_up smallint,
+    start_pressed smallint,
+    brake_applied smallint
+);
+
 SELECT create_hypertable('battery_soc', 'timestamp');
 SELECT create_hypertable('cell_voltages', 'timestamp');
 SELECT create_hypertable('drive_telemetry', 'timestamp');
@@ -116,6 +129,7 @@ SELECT create_hypertable('module_current_temp', 'timestamp');
 SELECT create_hypertable('module_status', 'timestamp');
 SELECT create_hypertable('other_records', 'timestamp');
 SELECT create_hypertable('status_flags', 'timestamp');
+SELECT create_hypertable('gear_status', 'timestamp');
 
 -- Uniqueness lets import.sql use ON CONFLICT DO NOTHING, so it can be re-run safely
 -- whenever new CSVs (cumulative or incremental) are dropped into /import.
@@ -126,3 +140,4 @@ ALTER TABLE module_current_temp ADD CONSTRAINT module_current_temp_uniq UNIQUE (
 ALTER TABLE module_status ADD CONSTRAINT module_status_uniq UNIQUE (source_file, "timestamp", module);
 ALTER TABLE other_records ADD CONSTRAINT other_records_uniq UNIQUE (source_file, "timestamp", code, data_ascii_or_hex);
 ALTER TABLE status_flags ADD CONSTRAINT status_flags_uniq UNIQUE (source_file, "timestamp");
+ALTER TABLE gear_status ADD CONSTRAINT gear_status_uniq UNIQUE (source_file, "timestamp");

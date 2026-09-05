@@ -16,6 +16,7 @@ CREATE TEMP TABLE stg_other_records (LIKE other_records INCLUDING DEFAULTS);
 -- batch on the first NULL row instead of just skipping it.
 ALTER TABLE stg_other_records ALTER COLUMN "timestamp" DROP NOT NULL;
 CREATE TEMP TABLE stg_status_flags (LIKE status_flags INCLUDING DEFAULTS);
+CREATE TEMP TABLE stg_gear_status (LIKE gear_status INCLUDING DEFAULTS);
 
 \copy stg_battery_soc FROM '/import/battery_soc.csv' WITH (FORMAT csv, HEADER true)
 \copy stg_cell_voltages FROM '/import/cell_voltages.csv' WITH (FORMAT csv, HEADER true)
@@ -24,6 +25,7 @@ CREATE TEMP TABLE stg_status_flags (LIKE status_flags INCLUDING DEFAULTS);
 \copy stg_module_status FROM '/import/module_status.csv' WITH (FORMAT csv, HEADER true)
 \copy stg_other_records FROM '/import/other_records.csv' WITH (FORMAT csv, HEADER true)
 \copy stg_status_flags FROM '/import/status_flags.csv' WITH (FORMAT csv, HEADER true)
+\copy stg_gear_status FROM '/import/gear_status.csv' WITH (FORMAT csv, HEADER true)
 
 -- A handful of raw frames share an identical (source_file, timestamp[, module]) key (logger
 -- clock glitch bursts). Dedupe within the staging table (a plain, single-relation temp table,
@@ -51,6 +53,9 @@ DELETE FROM stg_other_records a USING (
 DELETE FROM stg_status_flags a USING (
   SELECT ctid, row_number() OVER (PARTITION BY source_file, "timestamp" ORDER BY ctid) rn FROM stg_status_flags
 ) t WHERE a.ctid = t.ctid AND t.rn > 1;
+DELETE FROM stg_gear_status a USING (
+  SELECT ctid, row_number() OVER (PARTITION BY source_file, "timestamp" ORDER BY ctid) rn FROM stg_gear_status
+) t WHERE a.ctid = t.ctid AND t.rn > 1;
 
 INSERT INTO battery_soc SELECT * FROM stg_battery_soc ON CONFLICT DO NOTHING;
 INSERT INTO cell_voltages SELECT * FROM stg_cell_voltages ON CONFLICT DO NOTHING;
@@ -59,6 +64,7 @@ INSERT INTO module_current_temp SELECT * FROM stg_module_current_temp ON CONFLIC
 INSERT INTO module_status SELECT * FROM stg_module_status ON CONFLICT DO NOTHING;
 INSERT INTO other_records SELECT * FROM stg_other_records WHERE "timestamp" IS NOT NULL ON CONFLICT DO NOTHING;
 INSERT INTO status_flags SELECT * FROM stg_status_flags ON CONFLICT DO NOTHING;
+INSERT INTO gear_status SELECT * FROM stg_gear_status ON CONFLICT DO NOTHING;
 
 -- Rebuild derived tables from scratch (cheap: ~thousands of rows, not the raw telemetry).
 DROP TABLE IF EXISTS sessions;
@@ -301,6 +307,7 @@ UNION ALL SELECT 'module_current_temp', count(*) FROM module_current_temp
 UNION ALL SELECT 'module_status', count(*) FROM module_status
 UNION ALL SELECT 'other_records', count(*) FROM other_records
 UNION ALL SELECT 'status_flags', count(*) FROM status_flags
+UNION ALL SELECT 'gear_status', count(*) FROM gear_status
 UNION ALL SELECT 'sessions', count(*) FROM sessions
 UNION ALL SELECT 'charge_capacity_estimates', count(*) FROM charge_capacity_estimates
 UNION ALL SELECT 'long_idle_periods', count(*) FROM long_idle_periods

@@ -7,15 +7,15 @@
 | `decode_empulse_logs.py` | Decodes `.DRV`/`.CHG` binary logs into 7 CSV files. Format reverse-engineered by Richard Champalbert (FreepZ) and Jim Graham (flar), recovered from the archived [enspector](https://bitbucket.org/freepz/enspector) project. |
 | `namespace.yaml` | Kubernetes namespace (`brammo`). |
 | `timescaledb.yaml` | StatefulSet + Service for TimescaleDB (`timescale/timescaledb:2.29.2-pg16`, arm64-compatible). |
-| `schema.sql` | One-time schema setup: 7 raw hypertables + unique constraints (so imports can be re-run safely). |
-| `import.sql` | Idempotent bulk loader: `\copy`s the 7 CSVs into staging tables, dedupes, `INSERT ... ON CONFLICT DO NOTHING`s into the hypertables, then rebuilds all derived tables. |
+| `schema.sql` | One-time schema setup: 8 raw hypertables + unique constraints (so imports can be re-run safely). |
+| `import.sql` | Idempotent bulk loader: `\copy`s the 8 CSVs into staging tables, dedupes, `INSERT ... ON CONFLICT DO NOTHING`s into the hypertables, then rebuilds all derived tables. |
 | `grafana/create_datasource.sh` | Registers the Postgres/TimescaleDB datasource in Grafana via its HTTP API. |
 | `grafana/build_dashboards.py` | Generates and posts 4 Grafana dashboards via the Grafana API. |
 | `docker-compose.yml` | TimescaleDB + Grafana, for running all of this without Kubernetes. |
 
 ## Data model
 
-Seven raw hypertables, one row per logged frame, all keyed on `(source_file, timestamp[, module])`:
+Eight raw hypertables, one row per logged frame, all keyed on `(source_file, timestamp[, module])`:
 
 - `battery_soc` -- overall + per-module SoC%, pack voltage, high/low cell voltage, cell imbalance, per-module intra-balancing active flag, BMS fault flag
 - `cell_voltages` -- all 28 individual cell voltages (7 modules x 4 cells)
@@ -24,6 +24,7 @@ Seven raw hypertables, one row per logged frame, all keyed on `(source_file, tim
 - `module_status` -- per-module heater current, BMS chip rebuild count
 - `other_records` -- raw diagnostic/event codes that don't fit the above
 - `status_flags` -- kickstand state
+- `gear_status` -- selected gear (0=neutral, 1-6), side stand/start button/brake status
 
 Plus derived tables, rebuilt on every `import.sql` run:
 
@@ -58,7 +59,7 @@ docker compose exec timescaledb psql -U brammo -d brammo -f /tmp/schema.sql
 python3 decode_empulse_logs.py /path/to/DRV_CHG_files ./LOGS_csv
 
 docker compose exec timescaledb mkdir -p /import
-for f in battery_soc cell_voltages drive_telemetry module_current_temp module_status other_records status_flags; do
+for f in battery_soc cell_voltages drive_telemetry module_current_temp module_status other_records status_flags gear_status; do
   docker compose cp "./LOGS_csv/$f.csv" "timescaledb:/import/$f.csv"
 done
 docker compose cp import.sql timescaledb:/tmp/import.sql

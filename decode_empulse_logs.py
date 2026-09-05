@@ -173,6 +173,23 @@ def decode_F(payload):
     return {"kickstand": state, "kickstand_raw": kickstand_raw}
 
 
+def decode_E(payload):
+    # 32-byte payload. Byte 2 packs the selected gear (bits 0-2: 0=neutral, 1-5) and
+    # three status flags (bit3=side stand up, bit4=start pressed, bit7=brake applied),
+    # verified 100% (10195/10195 samples, 19 sessions) against the official tool's "AIM
+    # Gear Selected" and "AIM Status Bits" columns, one frame offset between exports (same
+    # quirk as the B-record fields above). Bits 5-6 never observed set in reference data.
+    if len(payload) < 3:
+        return None
+    byte2 = payload[2]
+    return {
+        "gear": byte2 & 0x07,
+        "side_stand_up": 1 if byte2 & 0x08 else 0,
+        "start_pressed": 1 if byte2 & 0x10 else 0,
+        "brake_applied": 1 if byte2 & 0x80 else 0,
+    }
+
+
 def decode_M(payload):
     # 46-byte per-module status record. byte0 = module number ('1'-'7').
     # offset 11 = heater current (mA), offset 31 = bq116 rebuild count -
@@ -222,6 +239,7 @@ def main():
     modtemp_path = os.path.join(out_dir, "module_current_temp.csv")
     modstatus_path = os.path.join(out_dir, "module_status.csv")
     flags_path = os.path.join(out_dir, "status_flags.csv")
+    gear_path = os.path.join(out_dir, "gear_status.csv")
     other_path = os.path.join(out_dir, "other_records.csv")
 
     drive_fields = ["source_file", "session_type", "timestamp", "speed_mph", "rpm",
@@ -242,6 +260,8 @@ def main():
     modstatus_fields = ["source_file", "session_type", "timestamp", "module",
                          "heater_current_ma", "bq116_rebuilds"]
     flags_fields = ["source_file", "session_type", "timestamp", "kickstand", "kickstand_raw"]
+    gear_fields = ["source_file", "session_type", "timestamp", "gear", "side_stand_up",
+                   "start_pressed", "brake_applied"]
     other_fields = ["source_file", "session_type", "timestamp", "code", "length", "data_ascii_or_hex"]
 
     n_files = 0
@@ -254,6 +274,7 @@ def main():
          open(modtemp_path, "w", newline="") as fmt, \
          open(modstatus_path, "w", newline="") as fms, \
          open(flags_path, "w", newline="") as ff, \
+         open(gear_path, "w", newline="") as fg, \
          open(other_path, "w", newline="") as fo:
 
         wd = csv.DictWriter(fd, fieldnames=drive_fields)
@@ -268,6 +289,8 @@ def main():
         wms.writeheader()
         wf = csv.DictWriter(ff, fieldnames=flags_fields)
         wf.writeheader()
+        wg = csv.DictWriter(fg, fieldnames=gear_fields)
+        wg.writeheader()
         wo = csv.DictWriter(fo, fieldnames=other_fields)
         wo.writeheader()
 
@@ -322,6 +345,11 @@ def main():
                         if dec:
                             wms.writerow({"source_file": fname, "session_type": session_type,
                                           "timestamp": date, **dec})
+                    elif code == ord('E'):
+                        dec = decode_E(payload)
+                        if dec:
+                            wg.writerow({"source_file": fname, "session_type": session_type,
+                                         "timestamp": date, **dec})
                     elif code in (ord('C'), ord('V')):
                         text = decode_vin(payload) if code == ord('V') else decode_ascii(payload)
                         wo.writerow({"source_file": fname, "session_type": session_type,
@@ -344,6 +372,7 @@ def main():
     print(f"  {modtemp_path}")
     print(f"  {modstatus_path}")
     print(f"  {flags_path}")
+    print(f"  {gear_path}")
     print(f"  {other_path}")
 
 
