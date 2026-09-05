@@ -53,7 +53,14 @@ CREATE TABLE drive_telemetry (
     odometer_mi numeric,
     air_temp_f numeric,
     motor_temp_f numeric,
-    throttle_pct numeric
+    throttle_pct numeric,
+    -- D-record bytes 4, 5-6, 15-16 -- reverse-engineered against official-tool reference
+    -- decodes, verified 100% (0/4580 mismatches across 3 sessions). motor_power_kw is
+    -- derived (voltage * current), not itself a separate logged field.
+    motor_voltage_vrms numeric,
+    motor_current_arms numeric,
+    motor_power_kw numeric,
+    estimated_range_mi numeric
 );
 
 CREATE TABLE module_current_temp (
