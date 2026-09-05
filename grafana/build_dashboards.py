@@ -78,6 +78,8 @@ def dashboard(uid, title, panels, variables, time_from="now-10y", annotations=No
         # shifted time. "utc" renders the value with no conversion, matching the raw data.
         "uid": uid, "title": title, "tags": ["brammo"], "timezone": "utc",
         "schemaVersion": 39, "version": 1,
+        # graphTooltip 1 = shared crosshair across all panels on the dashboard.
+        "graphTooltip": 1,
         "time": {"from": time_from, "to": "now"},
         "templating": {"list": variables},
         "panels": panels,
@@ -363,6 +365,13 @@ sessions_panels.append(table_panel(20, "Motor Controller Fault Events (S56 = Mot
     """SELECT "timestamp" AS "time", source_file, speed_mph, rpm, motor_voltage_vrms, motor_current_arms, mc_fault_code
 FROM drive_telemetry WHERE mc_fault_code <> 0 ORDER BY "timestamp" """))
 
+# B-record byte 10 bit 3 -- verified 100% but unconfirmed meaning (see decode_empulse_logs.py).
+# Far more frequent than the S56 fault above (1942 samples vs. 207) and never coincides with
+# it, so plotted as a weekly count rather than a full event table.
+sessions_panels.append(ts_panel(21, "BMS Fault Flag Events Over Time (weekly count, meaning unconfirmed)", 0, 67, 24, 9,
+    """SELECT time_bucket('7 days', "timestamp") AS "time", count(*) AS events
+FROM battery_soc WHERE bms_fault_flag = 1 GROUP BY 1 ORDER BY 1"""))
+
 MIN_DURATION_VAR = {
     "name": "min_duration_min",
     "type": "textbox",
@@ -542,6 +551,16 @@ drive_panels.append({
     "title": "Motor Controller Fault Code (56 = S56 Motor Low Voltage)", "datasource": ds,
     "gridPos": {"x": 0, "y": 66, "w": 24, "h": 4},
     "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", mc_fault_code FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1")],
+    "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
+})
+# B-record byte 10 bit 3 -- a pack-level fault flag, verified 100% but with unconfirmed
+# meaning (see decode_empulse_logs.py). Never coincides with mc_fault_code=56 in reference
+# data, so it's a separate, unrelated condition.
+drive_panels.append({
+    "id": 22, "type": "state-timeline",
+    "title": "BMS Fault Flag (meaning unconfirmed)", "datasource": ds,
+    "gridPos": {"x": 0, "y": 70, "w": 24, "h": 4},
+    "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", bms_fault_flag FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1")],
     "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
 })
 

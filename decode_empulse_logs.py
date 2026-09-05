@@ -142,6 +142,15 @@ def decode_B(payload):
         for i in range(NUM_BATTERIES):
             row[f"module{i+1}_intrabalance_active"] = (intrabalance_byte >> i) & 1
 
+        # Byte 10, bit 3 -- a pack-level fault flag, verified 100% (16968/16968 samples,
+        # 28 sessions) against the official tool's "Fault List" bit 34 and "BMS Faults" bit
+        # 4 (both mirror the same underlying condition, one frame offset between exports --
+        # same quirk as the intrabalance byte above). Its specific meaning is NOT confirmed:
+        # the reference tool gives no text description for this bit (unlike MC Fault/S56),
+        # and it never coincides with an S56 event in any reference session, so it's an
+        # unrelated condition. Kept as a raw flag rather than guessing a name for it.
+        row["bms_fault_flag"] = (payload[10] >> 3) & 1
+
         cell_volts = [struct.unpack_from(">H", payload, 48 + 2 * k)[0] / 1000.0
                       for k in range(28)]
         currents = [struct.unpack_from(">h", payload, 112 + 2 * k)[0] / 100.0
@@ -223,7 +232,8 @@ def main():
                  [f"module{i}_soc_pct" for i in range(1, NUM_BATTERIES + 1)] + \
                  ["pack_voltage_v", "high_cell_v", "low_cell_v", "cell_imbalance_mv",
                   "min_cell_temp_c", "max_cell_temp_c", "bms_firmware_rev", "bms_customer_code"] + \
-                 [f"module{i}_intrabalance_active" for i in range(1, NUM_BATTERIES + 1)]
+                 [f"module{i}_intrabalance_active" for i in range(1, NUM_BATTERIES + 1)] + \
+                 ["bms_fault_flag"]
     cells_fields = ["source_file", "session_type", "timestamp"] + \
                    [f"module{m}_cell{c}_v" for m in range(1, NUM_BATTERIES + 1) for c in range(1, 5)]
     modtemp_fields = ["source_file", "session_type", "timestamp"] + \

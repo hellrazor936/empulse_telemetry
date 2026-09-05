@@ -25,7 +25,7 @@ of this repo gets it into a real database with dashboards on top.
 
 Seven raw hypertables, one row per logged frame, all keyed on `(source_file, timestamp[, module])`:
 
-- `battery_soc` -- overall + per-module SoC%, pack voltage, high/low cell voltage, cell imbalance, per-module intra-balancing active flag
+- `battery_soc` -- overall + per-module SoC%, pack voltage, high/low cell voltage, cell imbalance, per-module intra-balancing active flag, BMS fault flag
 - `cell_voltages` -- all 28 individual cell voltages (7 modules x 4 cells)
 - `drive_telemetry` -- speed, RPM, odometer, air/motor temp, throttle, motor voltage/current/power, estimated range, Sevcon motor controller fault code
 - `module_current_temp` -- per-module current and cell temperature

@@ -28,7 +28,13 @@ CREATE TABLE battery_soc (
     module4_intrabalance_active smallint,
     module5_intrabalance_active smallint,
     module6_intrabalance_active smallint,
-    module7_intrabalance_active smallint
+    module7_intrabalance_active smallint,
+    -- Byte 10 bit 3 of the B-record -- a pack-level fault flag, verified 100%
+    -- (16968/16968 samples, 28 sessions) against the official tool's "Fault List" bit 34
+    -- and "BMS Faults" bit 4 (same condition, mirrored in both). Meaning unconfirmed --
+    -- no text description available, and it never coincides with an S56 mc_fault_code
+    -- event, so it's an unrelated condition.
+    bms_fault_flag smallint
 );
 
 CREATE TABLE cell_voltages (
