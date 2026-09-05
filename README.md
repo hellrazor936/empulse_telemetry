@@ -47,9 +47,20 @@ Plus derived tables, rebuilt on every `import.sql` run:
 All under an "Empulse R" folder, tagged `brammo`:
 
 - **Sessions** -- overview of every drive/charge session (clickable tables linking into the detail dashboards below), pack capacity degradation over time, module SoC spread trend, end-of-charge cell imbalance trend
+
+  ![Sessions dashboard](docs/screenshots/sessions.png)
+
 - **Efficiency** -- real-world range at 100% SoC, broken down by how much of the pack a drive actually used, average riding speed, and ambient temperature
+
+  ![Efficiency dashboard](docs/screenshots/efficiency.png)
+
 - **Session Details** -- per-drive deep dive: speed/RPM, motor/air temp, SoC & pack voltage, per-module current/temp/SoC, cell voltage heatmap, kickstand state
+
+  ![Session Details dashboard](docs/screenshots/session-details.png)
+
 - **Charge Details** -- per-charge deep dive: SoC & pack voltage, per-module charge current/temp, cell voltage heatmap, cell imbalance
+
+  ![Charge Details dashboard](docs/screenshots/charge-details.png)
 
 ## Running with Docker
 
