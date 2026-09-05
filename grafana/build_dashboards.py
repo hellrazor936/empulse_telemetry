@@ -514,6 +514,13 @@ WHERE dt.source_file = '$session' AND $__timeFilter(dt."timestamp") ORDER BY 1""
     overrides=[
         {"matcher": {"id": "byName", "options": "motor_temp_c"}, "properties": [{"id": "unit", "value": "celsius"}]},
         {"matcher": {"id": "byName", "options": "air_temp_c"}, "properties": [{"id": "unit", "value": "celsius"}]},
+        # No line, just a 20%-opacity fill that steps straight down instead of the default
+        # linear interpolation sloping between an "applied" and a "released" sample.
+        {"matcher": {"id": "byName", "options": "brake_applied_pct"}, "properties": [
+            {"id": "custom.lineWidth", "value": 0},
+            {"id": "custom.fillOpacity", "value": 20},
+            {"id": "custom.lineInterpolation", "value": "stepAfter"},
+        ]},
     ]))
 drive_panels.append(ts_panel(9, "SoC / Pack Voltage / Cell V Range", 0, 12, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", overall_soc_pct, pack_voltage_v, high_cell_v, low_cell_v FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1"))
