@@ -575,6 +575,14 @@ drive_panels.append({
     "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", gear FROM gear_status WHERE source_file = '$session' AND {tf} ORDER BY 1")],
     "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
 })
+# E-record byte 2, bit 7 -- brake applied, see decode_empulse_logs.py.
+drive_panels.append({
+    "id": 24, "type": "state-timeline",
+    "title": "Brake Applied", "datasource": ds,
+    "gridPos": {"x": 0, "y": 78, "w": 24, "h": 4},
+    "targets": [sql_target(f"SELECT \"timestamp\" AS \"time\", brake_applied FROM gear_status WHERE source_file = '$session' AND {tf} ORDER BY 1")],
+    "fieldConfig": {"defaults": {}, "overrides": []}, "options": {},
+})
 
 dash_drive = dashboard(UID_DRIVE, "Empulse R -- Session Details", drive_panels, [session_var("session", "drive")])
 
