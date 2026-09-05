@@ -189,6 +189,7 @@ drive_table_sql = """SELECT
   extract(epoch from started_at)*1000 AS started_epoch,
   extract(epoch from ended_at)*1000 AS ended_epoch
 FROM sessions WHERE session_type = 'drive'
+  AND $__timeFilter(started_at)
   AND extract(epoch from duration)/60 >= ${min_duration_min}
   AND COALESCE((odometer_end_mi - odometer_start_mi) * 1.609344, 0) >= ${min_distance_km}
 ORDER BY started_at DESC"""
@@ -203,6 +204,7 @@ charge_table_sql = """SELECT
 FROM sessions s
 LEFT JOIN charge_capacity_estimates c USING (source_file)
 WHERE s.session_type = 'charge'
+  AND $__timeFilter(s.started_at)
   AND extract(epoch from s.duration)/60 >= ${min_duration_min}
 ORDER BY s.started_at DESC"""
 
@@ -237,6 +239,7 @@ SELECT started_at AS "time", estimated_capacity_wh,
   avg(estimated_capacity_wh) OVER () AS average_capacity_wh,
   estimated_capacity_wh / 10000.0 * 100 AS pct_of_baseline
 FROM scaled
+WHERE $__timeFilter(started_at)
 ORDER BY started_at"""
 
 sessions_panels.append(ts_panel(9, "Estimated Pack Capacity Over Time (scaled to 10 kWh nominal at pack start)",
@@ -289,6 +292,7 @@ sessions_panels.append(stat_panel(11, "Reliable Capacity Samples", 18, 28, 6, 3,
 spread_sql = """SELECT started_at AS "time", max_module_spread_pct,
   avg(max_module_spread_pct) OVER () AS average_spread_pct
 FROM module_soc_spread
+WHERE $__timeFilter(started_at)
 ORDER BY started_at"""
 
 sessions_panels.append(ts_panel(13, "Module-to-Module SoC Spread Over Time (max gap between weakest & strongest module per session)",
@@ -313,6 +317,7 @@ sessions_panels.append(stat_panel(15, "Worst Module Spread Ever", 18, 35, 6, 5,
 eoc_sql = """SELECT ended_at AS "time", cell_imbalance_mv / 1000.0 AS cell_imbalance_v,
   avg(cell_imbalance_mv / 1000.0) OVER () AS average_imbalance_v
 FROM eoc_cell_imbalance
+WHERE $__timeFilter(ended_at)
 ORDER BY ended_at"""
 
 sessions_panels.append(ts_panel(16, "End-of-Charge Cell Voltage Imbalance Over Time (charges reaching >=95% SoC)",
@@ -343,6 +348,7 @@ balancing_sql = """SELECT started_at AS "time",
   module5_balance_frac * 100 AS module5_pct, module6_balance_frac * 100 AS module6_pct,
   module7_balance_frac * 100 AS module7_pct
 FROM module_balancing_summary
+WHERE $__timeFilter(started_at)
 ORDER BY started_at"""
 
 sessions_panels.append(ts_panel(18, "Per-Module Intra-Balancing Frequency Over Time (% of samples actively balancing)",
@@ -367,14 +373,14 @@ sessions_panels.append(table_panel(19, "Average Balancing Frequency by Module (A
 # voltage" in the sense of a depleted pack.
 sessions_panels.append(table_panel(20, "Motor Controller Fault Events (S56 = Motor Low Voltage)", 0, 58, 24, 9,
     """SELECT "timestamp" AS "time", source_file, speed_mph, rpm, motor_voltage_vrms, motor_current_arms, mc_fault_code
-FROM drive_telemetry WHERE mc_fault_code <> 0 ORDER BY "timestamp" """))
+FROM drive_telemetry WHERE mc_fault_code <> 0 AND $__timeFilter("timestamp") ORDER BY "timestamp" """))
 
 # B-record byte 10 bit 3 -- verified 100% but unconfirmed meaning (see decode_empulse_logs.py).
 # Far more frequent than the S56 fault above (1942 samples vs. 207) and never coincides with
 # it, so plotted as a weekly count rather than a full event table.
 sessions_panels.append(ts_panel(21, "BMS Fault Flag Events Over Time (weekly count, meaning unconfirmed)", 0, 67, 24, 9,
     """SELECT time_bucket('7 days', "timestamp") AS "time", count(*) AS events
-FROM battery_soc WHERE bms_fault_flag = 1 GROUP BY 1 ORDER BY 1"""))
+FROM battery_soc WHERE bms_fault_flag = 1 AND $__timeFilter("timestamp") GROUP BY 1 ORDER BY 1"""))
 
 MIN_DURATION_VAR = {
     "name": "min_duration_min",
