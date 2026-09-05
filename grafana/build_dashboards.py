@@ -150,15 +150,20 @@ IDLE_PERIODS_ANNOTATION = {
 
 
 def session_var(name, session_type):
+    raw_sql = (
+        "SELECT source_file AS __value, source_file || ' -- ' || "
+        "to_char(started_at,'YYYY-MM-DD HH24:MI') || ' (' || "
+        "round(extract(epoch from duration)/60) || ' min)' AS __text "
+        f"FROM sessions WHERE session_type = '{session_type}' ORDER BY started_at DESC"
+    )
     return {
         "name": name, "type": "query", "datasource": ds,
+        # "definition" is what Grafana shows as text for this variable (e.g. in the variable
+        # list/edit view) -- without it, some Grafana versions stringify the "query" object
+        # directly for display, producing a literal "[object Object]".
+        "definition": raw_sql,
         "query": {
-            "rawSql": (
-                "SELECT source_file AS __value, source_file || ' -- ' || "
-                "to_char(started_at,'YYYY-MM-DD HH24:MI') || ' (' || "
-                "round(extract(epoch from duration)/60) || ' min)' AS __text "
-                f"FROM sessions WHERE session_type = '{session_type}' ORDER BY started_at DESC"
-            ),
+            "rawSql": raw_sql,
             "format": "table",
         },
         "refresh": 1, "sort": 0, "includeAll": False, "multi": False, "current": {},

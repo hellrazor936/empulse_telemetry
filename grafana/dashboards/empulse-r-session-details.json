@@ -21,6 +21,7 @@
           "type": "grafana-postgresql-datasource",
           "uid": "bfx97xdyvr6dce"
         },
+        "definition": "SELECT source_file AS __value, source_file || ' -- ' || to_char(started_at,'YYYY-MM-DD HH24:MI') || ' (' || round(extract(epoch from duration)/60) || ' min)' AS __text FROM sessions WHERE session_type = 'drive' ORDER BY started_at DESC",
         "query": {
           "rawSql": "SELECT source_file AS __value, source_file || ' -- ' || to_char(started_at,'YYYY-MM-DD HH24:MI') || ' (' || round(extract(epoch from duration)/60) || ' min)' AS __text FROM sessions WHERE session_type = 'drive' ORDER BY started_at DESC",
           "format": "table"
