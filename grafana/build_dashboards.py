@@ -512,6 +512,18 @@ drive_panels.append({
 })
 drive_panels.append(table_panel(18, "Other Records (raw diagnostic codes)", 12, 52, 12, 6,
     f"SELECT \"timestamp\" AS \"time\", code, length, data_ascii_or_hex FROM other_records WHERE source_file = '$session' AND {tf} ORDER BY 1"))
+# D-record bytes 4, 5-6, 15-16 -- see decode_empulse_logs.py. motor_power_kw is derived
+# (voltage * current), not a separately logged field.
+drive_panels.append(ts_panel(19, "Motor Voltage / Current / Power", 0, 58, 12, 8,
+    f"SELECT \"timestamp\" AS \"time\", motor_voltage_vrms, motor_current_arms, motor_power_kw FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1",
+    overrides=[
+        {"matcher": {"id": "byName", "options": "motor_voltage_vrms"}, "properties": [{"id": "unit", "value": "volt"}]},
+        {"matcher": {"id": "byName", "options": "motor_current_arms"}, "properties": [{"id": "unit", "value": "amp"}]},
+        {"matcher": {"id": "byName", "options": "motor_power_kw"}, "properties": [{"id": "unit", "value": "kwatt"}]},
+    ]))
+drive_panels.append(ts_panel(20, "Estimated Range (dash indicator)", 12, 58, 12, 8,
+    f"SELECT \"timestamp\" AS \"time\", estimated_range_mi * 1.609344 AS estimated_range_km FROM drive_telemetry WHERE source_file = '$session' AND {tf} ORDER BY 1",
+    overrides=[{"matcher": {"id": "byName", "options": "estimated_range_km"}, "properties": [{"id": "unit", "value": "lengthkm"}]}]))
 
 dash_drive = dashboard(UID_DRIVE, "Empulse R -- Session Details", drive_panels, [session_var("session", "drive")])
 
