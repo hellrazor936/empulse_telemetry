@@ -28,6 +28,11 @@ All under an "Empulse R" folder, tagged `brammo`:
 
   ![Session Details dashboard](docs/screenshots/session-details.png)
 
+  Cell voltage heatmap (fixed 3.30V-4.15V color scale) alongside per-module intra-balancing
+  activity for the same session:
+
+  ![Cell voltage heatmap vs. intra-balancing activity](docs/screenshots/cell-heatmap-detail.png)
+
 - **Charge Details** -- per-charge deep dive: SoC & pack voltage, per-module charge current/temp, cell voltage heatmap, cell imbalance
 
   ![Charge Details dashboard](docs/screenshots/charge-details.png)
