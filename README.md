@@ -40,3 +40,8 @@ All under an "Empulse R" folder, tagged `brammo`:
 ## Getting started
 
 See **[INSTALL.md](INSTALL.md)** for running it with Docker Compose or on Kubernetes.
+
+## Bugs & ideas
+
+Found a bug, have an idea for a new field/dashboard, or spotted something in the byte format
+that's still unexplained? Please open a [GitHub Issue](https://github.com/hellrazor936/empulse_telemetry/issues).
