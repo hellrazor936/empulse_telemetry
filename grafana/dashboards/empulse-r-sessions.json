@@ -1220,6 +1220,52 @@
           "sort": "none"
         }
       }
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Pack Capacity Degradation Trend (% of baseline, 6-month average)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 76,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "WITH baseline AS (\n  SELECT avg(estimated_capacity_wh) AS b FROM (\n    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5\n  ) x\n)\nSELECT time_bucket('180 days', started_at) AS \"time\",\n  avg(estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline\nFROM charge_capacity_estimates, baseline\nWHERE $__timeFilter(started_at)\nGROUP BY 1, baseline.b\nORDER BY 1",
+          "format": "time_series",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "spanNulls": true
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      }
     }
   ],
   "annotations": {

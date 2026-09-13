@@ -450,6 +450,24 @@ sessions_panels.append(ts_panel(21, "BMS Fault Flag Events Over Time (weekly cou
     """SELECT time_bucket('7 days', "timestamp") AS "time", count(*) AS events
 FROM battery_soc WHERE bms_fault_flag = 1 AND $__timeFilter("timestamp") GROUP BY 1 ORDER BY 1"""))
 
+# Pure %-of-baseline degradation trend, heavily smoothed (6-month buckets) to show the
+# multi-year trend without individual charges' estimate noise -- a cleaner complement to the
+# per-charge scatter in panel 9 above.
+pct_trend_sql = """WITH baseline AS (
+  SELECT avg(estimated_capacity_wh) AS b FROM (
+    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5
+  ) x
+)
+SELECT time_bucket('180 days', started_at) AS "time",
+  avg(estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline
+FROM charge_capacity_estimates, baseline
+WHERE $__timeFilter(started_at)
+GROUP BY 1, baseline.b
+ORDER BY 1"""
+
+sessions_panels.append(ts_panel(22, "Pack Capacity Degradation Trend (% of baseline, 6-month average)", 0, 76, 24, 9,
+    pct_trend_sql, unit="percent"))
+
 MIN_DURATION_VAR = {
     "name": "min_duration_min",
     "type": "textbox",
