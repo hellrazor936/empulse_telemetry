@@ -464,7 +464,7 @@ FROM battery_soc WHERE bms_fault_flag = 1 AND $__timeFilter("timestamp") GROUP B
 # implies this (all 328 qualifying rows are >=30 min), but the join makes it a guarantee rather
 # than a coincidence.
 pct_trend_sql = """WITH baseline AS (
-  SELECT avg(c.estimated_capacity_wh) AS b FROM (
+  SELECT avg(x.estimated_capacity_wh) AS b FROM (
     SELECT c.estimated_capacity_wh
     FROM charge_capacity_estimates c
     JOIN sessions s USING (source_file)
