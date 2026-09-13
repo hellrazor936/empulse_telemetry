@@ -315,7 +315,9 @@
           "custom": {
             "spanNulls": true
           },
-          "unit": "amp"
+          "unit": "amp",
+          "min": -60,
+          "max": 60
         },
         "overrides": []
       },
