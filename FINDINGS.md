@@ -5,48 +5,204 @@ owner's riding/charging habits -- none of it is a general claim about the Empuls
 Elithion Lithiumate BMS behavior. The point of writing it down isn't "this is what's wrong with
 your bike too" -- it's to show *which patterns in the data are worth cross-referencing* if you're
 trying to diagnose your own pack: SoC jumps between sessions with nothing logged in between,
-per-module balancing frequency, per-module voltage sag under load, and how those three things
-can (or can't) be tied together into a single explanation. Your numbers, your weak module (if
-any), and your conclusions will very likely differ.
+per-module balancing frequency, per-module voltage sag under load, and how those things can (or
+can't) be tied together into a single explanation. Your numbers, your weak module (if any), and
+your conclusions will very likely differ. SQL below assumes the schema in `schema.sql` and is
+meant to be adapted, not copy-pasted blindly.
 
-Interpretive observations about the bike/pack that go beyond what's verified in the decoder
-(see `decode_empulse_logs.py` comments and `schema.sql` for byte-level verification methodology).
-These are informed guesses based on patterns in the data, not proven facts -- flagged as such
-below. For confirmed byte-level decode findings, see the code comments instead; for open
-technical questions about the log format itself, see the GitHub issues.
+For confirmed byte-level decode findings (which byte means what), see the comments in
+`decode_empulse_logs.py` and `schema.sql` instead; for open technical questions about the log
+format itself, see the GitHub issues.
 
-## Module 3 aging + short-gap SoC drops (hypothesis)
+## Confirmed
 
-**Observation**: comparing SoC at the end of one drive to SoC at the start of the next drive
-(with no charge session logged in between), several cases show a real SoC drop (2-4 points)
-over just a few hours of the bike sitting off -- far too fast to be normal Li-ion self-discharge
-(<1%/day) if it were a continuous drain.
+### Module imbalance caused "low battery" strandings, not a depleted pack
 
-Cross-referencing against `module{N}_intrabalance_active` in the last 5 minutes of the preceding
-drive: 6 of 8 checked cases had active balancing right before shutdown, and **module 3 was the
-dominant balancer in nearly every one** (e.g. 119 of 172 total balancing samples in one case).
+**Observation**: the bike had repeatedly stranded with a "low battery" warning despite
+`overall_soc_pct` (the average across all 7 modules) reading well above 0%. The real cause: one
+or two modules were reading near-empty while the others still had real charge -- the *pack
+average* looked fine, but the BMS/controller reacts to the *weakest* module.
 
-This lines up with two other findings:
-- Module 1 showed the steepest cell-voltage sag under load (of all 7 modules) when checked
-  across the full 10-year dataset -- a signature of higher internal resistance.
-- Module 3 has, by a wide margin, the highest all-time average intra-balancing frequency
-  (~10% of samples, vs. 3.6-6.3% for the others) -- see the Sessions dashboard's "Average
-  Balancing Frequency by Module" panel.
+```sql
+-- Widest gap between the weakest and strongest module, per drive session
+SELECT source_file, "timestamp",
+  GREATEST(module1_soc_pct, module2_soc_pct, module3_soc_pct, module4_soc_pct,
+           module5_soc_pct, module6_soc_pct, module7_soc_pct)
+  - LEAST(module1_soc_pct, module2_soc_pct, module3_soc_pct, module4_soc_pct,
+          module5_soc_pct, module6_soc_pct, module7_soc_pct) AS module_spread_pct,
+  overall_soc_pct
+FROM battery_soc
+WHERE source_file = '<a session that stranded>'
+ORDER BY module_spread_pct DESC
+LIMIT 10;
+```
 
-**Working hypothesis**: a cell in module 3 has aged/drifted enough (capacity or voltage curve
-slightly off from its neighbors) that it needs more frequent balancing than the rest of the
-pack. Passive/resistive balancing burns the excess charge off as heat, which would show up as
-exactly this kind of small SoC step-down between sessions -- aging is the likely root cause,
-balancing is the mechanism that makes it visible in the logs.
+A wide spread (double digits) at a low `overall_soc_pct` is the signature to look for -- the
+pack isn't "empty", one module is.
 
-**Caveat**: balancing-sample count doesn't correlate cleanly with the size of the SoC drop
-(one case had 172 balancing samples but only a -2.3 point drop, another had just 2 samples but
-a -3.7 point drop) -- so balancing/aging explains the general pattern and the module-3 bias
-well, but not the exact magnitude of any single drop. Voltage relaxation after a hard ride
-(temporarily depressed cell voltage recovering once load is removed, which a voltage-informed
-SoC estimate would read as a step down) may also be contributing, and doesn't require active
-balancing to have been logged -- two of the eight cases showed no balancing at all yet still
-had a 2-2.5 point drop.
+### Balancing is passive and within-module, not active and between-module
 
-Not yet investigated: whether these short-gap drops have become more frequent or larger in
-recent years (which would support the aging explanation more directly than a snapshot).
+Before decoding the actual bitmask, the working theory was that the BMS does *active* balancing
+(moving charge between modules) under certain conditions (e.g. one module hitting a low-voltage
+threshold). Decoding B-record byte 31 (`module{N}_intrabalance_active`) against the official
+tool's own "Module Intrabalance Active" / "Module Interbalance Active" columns showed the
+opposite: intra-module (within a module, presumably cell-to-cell) balancing is what's actually
+happening, verified active in the logs; inter-module balancing (between modules) was never once
+observed active across 37+ reference files, so the platform may not really do that at all, or
+does it under conditions this bike never hit.
+
+```sql
+-- How often is each module actively (intra-)balancing, all-time
+SELECT
+  avg(module1_intrabalance_active::int) AS m1, avg(module2_intrabalance_active::int) AS m2,
+  avg(module3_intrabalance_active::int) AS m3, avg(module4_intrabalance_active::int) AS m4,
+  avg(module5_intrabalance_active::int) AS m5, avg(module6_intrabalance_active::int) AS m6,
+  avg(module7_intrabalance_active::int) AS m7
+FROM battery_soc;
+```
+
+### Modules 1 and 3 are the weakest, found independently by two different methods
+
+**Method 1 -- voltage sag under load**: for every sample, compute each cell's deviation from
+the mean of all 28 cells, then compare that deviation during high-current moments vs. resting
+moments. A cell/module with higher internal resistance sags further below its peers specifically
+when current is high.
+
+```sql
+WITH joined AS (
+  SELECT cv.*,
+    (abs(mc.module1_current_a)+abs(mc.module2_current_a)+abs(mc.module3_current_a)
+     +abs(mc.module4_current_a)+abs(mc.module5_current_a)+abs(mc.module6_current_a)
+     +abs(mc.module7_current_a))/7.0 AS avg_current
+  FROM cell_voltages cv
+  JOIN module_current_temp mc ON mc.source_file=cv.source_file AND mc.timestamp=cv.timestamp
+),
+row_avg AS (
+  SELECT *, (module1_cell1_v+module1_cell2_v+module1_cell3_v+module1_cell4_v
+    +module2_cell1_v+module2_cell2_v+module2_cell3_v+module2_cell4_v
+    +module3_cell1_v+module3_cell2_v+module3_cell3_v+module3_cell4_v
+    +module4_cell1_v+module4_cell2_v+module4_cell3_v+module4_cell4_v
+    +module5_cell1_v+module5_cell2_v+module5_cell3_v+module5_cell4_v
+    +module6_cell1_v+module6_cell2_v+module6_cell3_v+module6_cell4_v
+    +module7_cell1_v+module7_cell2_v+module7_cell3_v+module7_cell4_v) / 28.0 AS mean_v
+  FROM joined
+)
+-- Repeat per cell column: deviation at high current vs. low current
+SELECT
+  avg(module1_cell1_v - mean_v) FILTER (WHERE avg_current > 100) AS high_dev,
+  avg(module1_cell1_v - mean_v) FILTER (WHERE avg_current < 10) AS low_dev
+FROM row_avg;
+```
+
+A cell whose `high_dev` is much more negative than its `low_dev` sags disproportionately under
+load. Module 1's cells (all four) came out worst by this method.
+
+**Method 2 -- balancing frequency**: module 3 balances far more often than any other, all-time
+(see the query in the previous section) -- roughly 10% of samples vs. 3.6-6.3% for the rest.
+
+These are two different mechanisms (internal resistance vs. capacity/voltage-curve mismatch) and
+two different modules -- not a single clean "this module is bad" story, but two independent
+signals worth having if you're deciding whether/when to consider a partial rebuild.
+
+### BMS fault flag = low-cell-voltage warning (~3.7V threshold)
+
+A pack-level flag (B-record byte 10 bit 3) with no official text label turned out to correlate
+almost perfectly with the lowest cell's voltage: it never fires at or above ~3.70V, and becomes
+steadily more likely the further the weakest cell drops below that.
+
+```sql
+SELECT bms_fault_flag, count(*),
+  round(min(low_cell_v),3) AS min_low_cell_v,
+  round(avg(low_cell_v),3) AS avg_low_cell_v,
+  round(max(low_cell_v),3) AS max_low_cell_v
+FROM battery_soc GROUP BY bms_fault_flag;
+```
+
+If you have an equivalent flag, bucket `low_cell_v` (e.g. `width_bucket(low_cell_v, 3.0, 4.0, 20)`)
+against it to see if your pack has the same cutoff.
+
+### S56 ("Motor low voltage") correlates with RPM/throttle, not pack condition
+
+A Sevcon motor controller fault (`mc_fault_code = 56`) that sounds like it should mean "battery
+is weak" instead only ever fires during hard acceleration at high RPM, is immediately followed by
+a throttle/torque cut, and shows **no** correlation with SoC, pack voltage, or ambient
+temperature at the time of the event.
+
+```sql
+SELECT dt.source_file, dt."timestamp", dt.speed_mph, dt.rpm, dt.throttle_pct,
+  b.overall_soc_pct, b.pack_voltage_v
+FROM drive_telemetry dt
+JOIN battery_soc b ON b.source_file=dt.source_file AND b.timestamp=dt.timestamp
+WHERE dt.mc_fault_code <> 0
+ORDER BY dt."timestamp";
+```
+
+If your fault events cluster at a specific RPM/throttle combination but scatter freely across
+SoC/voltage/temp, that's a sign it's a controller-side voltage-headroom limit (field-weakening
+region), not a pack health issue -- worth checking before assuming a wiring/contact problem.
+
+## Open / unresolved
+
+### Module 3 aging + short-gap SoC drops (hypothesis)
+
+Comparing SoC at the end of one drive to SoC at the start of the next (no charge session logged
+in between), several cases show a real SoC drop (2-4 points) over just a few hours parked --
+far too fast for normal Li-ion self-discharge (<1%/day) if it were a continuous drain.
+
+```sql
+WITH first_soc AS (
+  SELECT DISTINCT ON (source_file) source_file, overall_soc_pct AS soc_first
+  FROM battery_soc ORDER BY source_file, "timestamp" ASC
+),
+last_soc AS (
+  SELECT DISTINCT ON (source_file) source_file, overall_soc_pct AS soc_last
+  FROM battery_soc ORDER BY source_file, "timestamp" DESC
+),
+sess AS (
+  SELECT s.source_file, s.session_type, s.started_at, s.ended_at, f.soc_first, l.soc_last
+  FROM sessions s JOIN first_soc f USING (source_file) JOIN last_soc l USING (source_file)
+),
+ordered AS (
+  SELECT *,
+    lead(session_type) OVER (ORDER BY started_at) AS next_type,
+    lead(soc_first) OVER (ORDER BY started_at) AS next_soc_first,
+    lead(started_at) OVER (ORDER BY started_at) AS next_started_at
+  FROM sess
+)
+SELECT source_file, ended_at, soc_last, next_started_at, next_soc_first,
+  round(next_soc_first - soc_last, 1) AS soc_gap,
+  round(extract(epoch FROM (next_started_at - ended_at))/86400.0, 2) AS idle_days
+FROM ordered
+WHERE session_type = 'drive' AND next_type = 'drive'
+  AND (next_soc_first - soc_last) < -1.5
+  AND extract(epoch FROM (next_started_at - ended_at))/86400.0 < 1
+ORDER BY soc_gap;
+```
+
+Cross-referencing `module{N}_intrabalance_active` in the last few minutes of the preceding drive:
+6 of 8 checked cases had active balancing right before shutdown, and module 3 was the dominant
+balancer in nearly every one (up to 119 of 172 total balancing samples in one case) -- lining up
+with module 3's all-time balancing lead and module 1's load-sag lead above.
+
+**Working hypothesis**: an aged/drifted cell in module 3 needs more frequent balancing; passive
+balancing burns the excess charge off as heat, producing exactly this kind of small SoC
+step-down between sessions.
+
+**Caveat**: balancing-sample count doesn't correlate cleanly with drop size (172 samples but only
+-2.3 points in one case; 2 samples but -3.7 points in another) -- balancing/aging explains the
+general pattern and the module-3 bias, not the exact magnitude of any single drop. Voltage
+relaxation after a hard ride (cell voltage temporarily depressed under load, recovering once
+removed, read by a voltage-informed SoC estimate as a step down) may also be contributing --
+two of the eight cases showed no balancing logged at all yet still had a 2-2.5 point drop.
+
+Not yet investigated: whether these short-gap drops have gotten more frequent/larger in recent
+years, which would support the aging explanation more directly than a snapshot does.
+
+### Single-module current divergence at top-of-charge (unexplained)
+
+A specific charge session showed one module's current diverge to -3.96A for several minutes near
+the top of charge while the other six modules stayed near 0A, without a clean correspondence to
+the `intrabalance_active` flag for that module at the same timestamps. Looked like it might be
+balancing-related at first glance, but the flag doesn't actually confirm it. Possibly related to
+undecoded bq116 FET-status fields (`M{n} bq116 Fet Status` in the reference tool's columns,
+which we have not attempted to decode). Left open.
