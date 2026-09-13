@@ -1224,7 +1224,7 @@
     {
       "id": 22,
       "type": "timeseries",
-      "title": "Pack Capacity Degradation Trend (% of baseline, 6-month average)",
+      "title": "Pack Capacity Degradation Trend (% of baseline, 60-day average, charges >=30min)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "bfx97xdyvr6dce"
@@ -1241,7 +1241,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "WITH baseline AS (\n  SELECT avg(estimated_capacity_wh) AS b FROM (\n    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5\n  ) x\n)\nSELECT time_bucket('180 days', started_at) AS \"time\",\n  avg(estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline\nFROM charge_capacity_estimates, baseline\nWHERE $__timeFilter(started_at)\nGROUP BY 1, baseline.b\nORDER BY 1",
+          "rawSql": "WITH baseline AS (\n  SELECT avg(c.estimated_capacity_wh) AS b FROM (\n    SELECT c.estimated_capacity_wh\n    FROM charge_capacity_estimates c\n    JOIN sessions s USING (source_file)\n    WHERE extract(epoch FROM s.duration) >= 1800\n    ORDER BY c.started_at ASC LIMIT 5\n  ) x\n)\nSELECT time_bucket('60 days', c.started_at) AS \"time\",\n  avg(c.estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline\nFROM charge_capacity_estimates c\nJOIN sessions s USING (source_file)\nCROSS JOIN baseline\nWHERE $__timeFilter(c.started_at) AND extract(epoch FROM s.duration) >= 1800\nGROUP BY 1, baseline.b\nORDER BY 1",
           "format": "time_series",
           "refId": "A",
           "editorMode": "code"
@@ -1250,7 +1250,8 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "spanNulls": true
+            "spanNulls": true,
+            "lineInterpolation": "smooth"
           },
           "unit": "percent"
         },

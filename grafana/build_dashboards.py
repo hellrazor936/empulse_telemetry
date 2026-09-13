@@ -457,23 +457,37 @@ sessions_panels.append(ts_panel(21, "BMS Fault Flag Events Over Time (weekly cou
     """SELECT time_bucket('7 days', "timestamp") AS "time", count(*) AS events
 FROM battery_soc WHERE bms_fault_flag = 1 AND $__timeFilter("timestamp") GROUP BY 1 ORDER BY 1"""))
 
-# Pure %-of-baseline degradation trend, heavily smoothed (6-month buckets) to show the
+# Pure %-of-baseline degradation trend, heavily smoothed (60-day buckets) to show the
 # multi-year trend without individual charges' estimate noise -- a cleaner complement to the
-# per-charge scatter in panel 9 above.
+# per-charge scatter in panel 9 above. Explicitly restricted to charges lasting >= 30 minutes --
+# in practice charge_capacity_estimates' own >=30-point SoC-swing filter (see import.sql) already
+# implies this (all 328 qualifying rows are >=30 min), but the join makes it a guarantee rather
+# than a coincidence.
 pct_trend_sql = """WITH baseline AS (
-  SELECT avg(estimated_capacity_wh) AS b FROM (
-    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5
+  SELECT avg(c.estimated_capacity_wh) AS b FROM (
+    SELECT c.estimated_capacity_wh
+    FROM charge_capacity_estimates c
+    JOIN sessions s USING (source_file)
+    WHERE extract(epoch FROM s.duration) >= 1800
+    ORDER BY c.started_at ASC LIMIT 5
   ) x
 )
-SELECT time_bucket('180 days', started_at) AS "time",
-  avg(estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline
-FROM charge_capacity_estimates, baseline
-WHERE $__timeFilter(started_at)
+SELECT time_bucket('60 days', c.started_at) AS "time",
+  avg(c.estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline
+FROM charge_capacity_estimates c
+JOIN sessions s USING (source_file)
+CROSS JOIN baseline
+WHERE $__timeFilter(c.started_at) AND extract(epoch FROM s.duration) >= 1800
 GROUP BY 1, baseline.b
 ORDER BY 1"""
 
-sessions_panels.append(ts_panel(22, "Pack Capacity Degradation Trend (% of baseline, 6-month average)", 0, 76, 24, 9,
-    pct_trend_sql, unit="percent"))
+pct_trend_panel = ts_panel(22, "Pack Capacity Degradation Trend (% of baseline, 60-day average, charges >=30min)", 0, 76, 24, 9,
+    pct_trend_sql, unit="percent")
+# Smooth curve instead of straight linear segments between the 60-day bucket points --
+# this is a smoothed trend line, not a raw sample-by-sample series, so a curved
+# interpolation reads more naturally than sharp linear kinks at each point.
+pct_trend_panel["fieldConfig"]["defaults"]["custom"]["lineInterpolation"] = "smooth"
+sessions_panels.append(pct_trend_panel)
 
 MIN_DURATION_VAR = {
     "name": "min_duration_min",
