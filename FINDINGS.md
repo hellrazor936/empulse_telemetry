@@ -1,5 +1,14 @@
 # Findings & Hypotheses
 
+**Disclaimer**: everything below is specific to *this* bike, this pack's age/history, and this
+owner's riding/charging habits -- none of it is a general claim about the Empulse R platform or
+Elithion Lithiumate BMS behavior. The point of writing it down isn't "this is what's wrong with
+your bike too" -- it's to show *which patterns in the data are worth cross-referencing* if you're
+trying to diagnose your own pack: SoC jumps between sessions with nothing logged in between,
+per-module balancing frequency, per-module voltage sag under load, and how those three things
+can (or can't) be tied together into a single explanation. Your numbers, your weak module (if
+any), and your conclusions will very likely differ.
+
 Interpretive observations about the bike/pack that go beyond what's verified in the decoder
 (see `decode_empulse_logs.py` comments and `schema.sql` for byte-level verification methodology).
 These are informed guesses based on patterns in the data, not proven facts -- flagged as such

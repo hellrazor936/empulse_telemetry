@@ -92,7 +92,12 @@ CREATE TABLE module_status (
     "timestamp" timestamp NOT NULL,
     module smallint,
     heater_current_ma numeric,
-    bq116_rebuilds integer
+    bq116_rebuilds integer,
+    -- M-record offset 1 (u16be, /1000) and offset 14 -- verified 100% (8309/8309 samples,
+    -- all 7 modules, 1 session so far) against the official tool's "RS-485 Voltage (V)" and
+    -- "Relative Humidity (%)" columns, same one-frame offset as other M/B-record fields.
+    rs485_voltage_v numeric,
+    relative_humidity_pct smallint
 );
 
 CREATE TABLE other_records (

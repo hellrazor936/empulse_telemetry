@@ -197,13 +197,22 @@ def decode_M(payload):
     # 46-byte per-module status record. byte0 = module number ('1'-'7').
     # offset 11 = heater current (mA), offset 31 = bq116 rebuild count -
     # both verified against the same reference CSV as decode_B.
+    # offset 1 (u16be, /1000) = RS-485 bus voltage (V), offset 14 = relative humidity (%) --
+    # both verified 100% (8309/8309 samples, all 7 modules, one session so far) against the
+    # official tool's "M{n} RS-485 Voltage (V)" and "M{n} Relative Humidity (%)" columns, same
+    # one-frame offset as the B-record fields. A same-methodology fit for "Heater Voltage (V)"
+    # at offset 6 turned out spurious (byte was constant while the reference value varied) --
+    # not decoded, rejected after manual spot-check.
     if len(payload) < 32:
         return None
     module = payload[0] - 0x30
+    rs485_voltage_v = struct.unpack_from(">H", payload, 1)[0] / 1000.0
     return {
         "module": module,
         "heater_current_ma": payload[11],
         "bq116_rebuilds": payload[31],
+        "rs485_voltage_v": round(rs485_voltage_v, 3),
+        "relative_humidity_pct": payload[14],
     }
 
 
@@ -261,7 +270,8 @@ def main():
                       [f"module{i}_current_a" for i in range(1, NUM_BATTERIES + 1)] + \
                       [f"module{i}_cell_temp_c" for i in range(1, NUM_BATTERIES + 1)]
     modstatus_fields = ["source_file", "session_type", "timestamp", "module",
-                         "heater_current_ma", "bq116_rebuilds"]
+                         "heater_current_ma", "bq116_rebuilds", "rs485_voltage_v",
+                         "relative_humidity_pct"]
     flags_fields = ["source_file", "session_type", "timestamp", "kickstand", "kickstand_raw"]
     gear_fields = ["source_file", "session_type", "timestamp", "gear", "side_stand_up",
                    "start_pressed", "brake_applied"]
