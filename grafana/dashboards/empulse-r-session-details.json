@@ -1055,7 +1055,7 @@
     {
       "id": 22,
       "type": "state-timeline",
-      "title": "BMS Fault Flag (meaning unconfirmed)",
+      "title": "BMS Fault Flag (low cell voltage warning)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "bfx97xdyvr6dce"

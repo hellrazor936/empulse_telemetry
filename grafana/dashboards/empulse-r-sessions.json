@@ -1179,7 +1179,7 @@
     {
       "id": 21,
       "type": "timeseries",
-      "title": "BMS Fault Flag Events Over Time (weekly count, meaning unconfirmed)",
+      "title": "BMS Fault Flag Events Over Time (weekly count -- low cell voltage warning)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "bfx97xdyvr6dce"

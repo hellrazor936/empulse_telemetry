@@ -145,10 +145,13 @@ def decode_B(payload):
         # Byte 10, bit 3 -- a pack-level fault flag, verified 100% (16968/16968 samples,
         # 28 sessions) against the official tool's "Fault List" bit 34 and "BMS Faults" bit
         # 4 (both mirror the same underlying condition, one frame offset between exports --
-        # same quirk as the intrabalance byte above). Its specific meaning is NOT confirmed:
-        # the reference tool gives no text description for this bit (unlike MC Fault/S56),
-        # and it never coincides with an S56 event in any reference session, so it's an
-        # unrelated condition. Kept as a raw flag rather than guessing a name for it.
+        # same quirk as the intrabalance byte above). No official text label exists for this
+        # bit (unlike MC Fault/S56), but cross-referencing against low_cell_v across the full
+        # dataset (~1.54M samples) shows it never fires at or above 3.70V and becomes steadily
+        # more likely the lower the weakest cell drops below that -- a low-cell-voltage
+        # warning/protection flag, confirmed against the owner's own experience of the pack
+        # shutting down near ~3.3V on a cell. Never coincides with an S56 event, so it's a
+        # separate condition from the Sevcon motor controller fault.
         row["bms_fault_flag"] = (payload[10] >> 3) & 1
 
         cell_volts = [struct.unpack_from(">H", payload, 48 + 2 * k)[0] / 1000.0

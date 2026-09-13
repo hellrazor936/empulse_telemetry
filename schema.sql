@@ -31,9 +31,12 @@ CREATE TABLE battery_soc (
     module7_intrabalance_active smallint,
     -- Byte 10 bit 3 of the B-record -- a pack-level fault flag, verified 100%
     -- (16968/16968 samples, 28 sessions) against the official tool's "Fault List" bit 34
-    -- and "BMS Faults" bit 4 (same condition, mirrored in both). Meaning unconfirmed --
-    -- no text description available, and it never coincides with an S56 mc_fault_code
-    -- event, so it's an unrelated condition.
+    -- and "BMS Faults" bit 4 (same condition, mirrored in both). No official text label,
+    -- but it never fires at low_cell_v >= 3.70V and becomes steadily more likely the lower
+    -- the weakest cell drops below that (0% at >=3.70V up to ~14% just above 3.30V, across
+    -- ~1.54M samples) -- a low-cell-voltage warning/protection flag, matching the owner's
+    -- own experience of the pack shutting down near ~3.3V on a cell. Never coincides with
+    -- an S56 mc_fault_code event, so it's a separate condition.
     bms_fault_flag smallint
 );
 
