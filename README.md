@@ -8,7 +8,9 @@ The bike logs every drive and every charge to a USB flash drive under the seat (
 system) in a compact binary format. `decode_empulse_logs.py` turns that into plain CSV; the rest
 of this repo gets it into a real database with dashboards on top.
 
-Setup, the file layout, and the full data model are in **[INSTALL.md](INSTALL.md)**.
+Setup, the file layout, and the full data model are in **[INSTALL.md](INSTALL.md)**. Interpretive
+findings and open hypotheses about the pack (not just byte-level decode notes) are in
+**[FINDINGS.md](FINDINGS.md)**.
 
 ## Grafana dashboards
 
