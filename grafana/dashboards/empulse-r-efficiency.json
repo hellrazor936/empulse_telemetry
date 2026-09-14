@@ -152,6 +152,74 @@
       }
     },
     {
+      "id": 8,
+      "type": "stat",
+      "title": "Avg. Consumption (deep-depletion drives, >=30% SoC used)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(sum(e.consumed_wh) / sum(e.distance_mi) / 1.609344,1) FROM drive_energy_estimates e JOIN sessions s USING (source_file)\nWHERE (s.max_soc_pct - s.min_soc_pct) >= 30 AND $__timeFilter(e.started_at)",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "watth"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Avg. Consumption (all qualifying drives -- biased low, see above)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "SELECT round(sum(e.consumed_wh) / sum(e.distance_mi) / 1.609344,1) FROM drive_energy_estimates e WHERE $__timeFilter(e.started_at)",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "watth"
+        },
+        "overrides": []
+      }
+    },
+    {
       "id": 4,
       "type": "table",
       "title": "Range by Depletion Depth (shows the extrapolation bias)",
@@ -161,7 +229,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 8,
         "w": 12,
         "h": 6
       },
@@ -171,7 +239,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT\n  CASE\n    WHEN soc_used_pct < 15 THEN '5-15%'\n    WHEN soc_used_pct < 30 THEN '15-30%'\n    WHEN soc_used_pct < 50 THEN '30-50%'\n    ELSE '50%+'\n  END AS soc_used,\n  count(*) AS n_drives,\n  round(avg(avg_speed_mph * 1.609344),1) AS avg_speed_kmh,\n  round(sum(distance_mi * 1.609344)) AS total_km,\n  round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) AS range_at_100pct_km\nFROM drive_range_estimates\nWHERE $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(soc_used_pct)",
+          "rawSql": "SELECT\n  CASE\n    WHEN r.soc_used_pct < 15 THEN '5-15%'\n    WHEN r.soc_used_pct < 30 THEN '15-30%'\n    WHEN r.soc_used_pct < 50 THEN '30-50%'\n    ELSE '50%+'\n  END AS soc_used,\n  count(*) AS n_drives,\n  round(avg(avg_speed_mph * 1.609344),1) AS avg_speed_kmh,\n  round(sum(r.distance_mi * 1.609344)) AS total_km,\n  round(sum(r.distance_mi) / sum(r.soc_used_pct) * 100 * 1.609344) AS range_at_100pct_km,\n  round(sum(e.consumed_wh) / sum(e.distance_mi) / 1.609344,1) AS consumption_per_km\nFROM drive_range_estimates r\nLEFT JOIN drive_energy_estimates e USING (source_file)\nWHERE $__timeFilter(r.started_at)\nGROUP BY 1\nORDER BY min(r.soc_used_pct)",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -219,6 +287,18 @@
                 "value": "lengthkm"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "consumption_per_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watth"
+              }
+            ]
           }
         ]
       },
@@ -236,7 +316,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 8,
         "w": 12,
         "h": 6
       },
@@ -246,7 +326,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "WITH base AS (\n  SELECT soc_used_pct, distance_mi, started_at,\n    avg_speed_mph * 1.609344 AS avg_speed_kmh, range_at_100pct_mi * 1.609344 AS range_at_100pct_km\n  FROM drive_range_estimates\n)\nSELECT\n  CASE WHEN avg_speed_kmh < 30 THEN '<30 km/h' WHEN avg_speed_kmh < 45 THEN '30-45 km/h' WHEN avg_speed_kmh < 60 THEN '45-60 km/h' ELSE '60+ km/h' END AS avg_speed,\n  count(*) AS n_drives,\n  round(avg(range_at_100pct_km)) AS avg_range_at_100pct_km,\n  round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) AS weighted_range_at_100pct_km\nFROM base\nWHERE $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_speed_kmh)",
+          "rawSql": "WITH base AS (\n  SELECT r.soc_used_pct, r.distance_mi, r.started_at,\n    avg_speed_mph * 1.609344 AS avg_speed_kmh, range_at_100pct_mi * 1.609344 AS range_at_100pct_km,\n    e.consumed_wh, e.distance_mi AS energy_distance_mi\n  FROM drive_range_estimates r\n  LEFT JOIN drive_energy_estimates e USING (source_file)\n)\nSELECT\n  CASE WHEN avg_speed_kmh < 30 THEN '<30 km/h' WHEN avg_speed_kmh < 45 THEN '30-45 km/h' WHEN avg_speed_kmh < 60 THEN '45-60 km/h' ELSE '60+ km/h' END AS avg_speed,\n  count(*) AS n_drives,\n  round(avg(range_at_100pct_km)) AS avg_range_at_100pct_km,\n  round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) AS weighted_range_at_100pct_km,\n  round(sum(consumed_wh) / sum(energy_distance_mi) / 1.609344,1) AS consumption_per_km\nFROM base\nWHERE $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_speed_kmh)",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -282,6 +362,18 @@
                 "value": "lengthkm"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "consumption_per_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watth"
+              }
+            ]
           }
         ]
       },
@@ -299,7 +391,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 14,
         "w": 24,
         "h": 6
       },
@@ -309,7 +401,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "WITH base AS (\n  SELECT soc_used_pct, distance_mi, avg_air_temp_f, started_at,\n    (avg_air_temp_f - 32) * 5.0/9.0 AS avg_temp_c, avg_speed_mph * 1.609344 AS avg_speed_kmh\n  FROM drive_range_estimates\n)\nSELECT\n  CASE WHEN avg_temp_c < 5 THEN '<5C' WHEN avg_temp_c < 15 THEN '5-15C' WHEN avg_temp_c < 25 THEN '15-25C' ELSE '25C+' END AS air_temp,\n  count(*) AS n_drives,\n  round(avg(avg_temp_c),1) AS avg_temp_c,\n  round(avg(avg_speed_kmh),1) AS avg_speed_kmh,\n  round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) AS weighted_range_at_100pct_km\nFROM base\nWHERE avg_air_temp_f IS NOT NULL AND $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_temp_c)",
+          "rawSql": "WITH base AS (\n  SELECT r.soc_used_pct, r.distance_mi, r.avg_air_temp_f, r.started_at,\n    (avg_air_temp_f - 32) * 5.0/9.0 AS avg_temp_c, avg_speed_mph * 1.609344 AS avg_speed_kmh,\n    e.consumed_wh, e.distance_mi AS energy_distance_mi\n  FROM drive_range_estimates r\n  LEFT JOIN drive_energy_estimates e USING (source_file)\n)\nSELECT\n  CASE WHEN avg_temp_c < 5 THEN '<5C' WHEN avg_temp_c < 15 THEN '5-15C' WHEN avg_temp_c < 25 THEN '15-25C' ELSE '25C+' END AS air_temp,\n  count(*) AS n_drives,\n  round(avg(avg_temp_c),1) AS avg_temp_c,\n  round(avg(avg_speed_kmh),1) AS avg_speed_kmh,\n  round(sum(distance_mi) / sum(soc_used_pct) * 100 * 1.609344) AS weighted_range_at_100pct_km,\n  round(sum(consumed_wh) / sum(energy_distance_mi) / 1.609344,1) AS consumption_per_km\nFROM base\nWHERE avg_air_temp_f IS NOT NULL AND $__timeFilter(started_at)\nGROUP BY 1\nORDER BY min(avg_temp_c)",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -355,6 +447,18 @@
               {
                 "id": "unit",
                 "value": "lengthkm"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "consumption_per_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watth"
               }
             ]
           }

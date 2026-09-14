@@ -543,8 +543,10 @@ eff_panels = []
 # distance_expr converts the raw distance_mi column; weighted range-at-100% always derives
 # from it (sum(distance)/sum(soc_used_pct)*100), never from averaging a per-row ratio.
 # range_expr separately converts the precomputed per-row range_at_100pct_mi column, used only
-# where the *unweighted* per-drive average is wanted alongside the weighted one.
-distance_expr, distance_alias, distance_unit = conv_length("distance_mi", "total")
+# where the *unweighted* per-drive average is wanted alongside the weighted one. Qualified with
+# the "r." alias since depth_sql below joins in drive_energy_estimates, which has its own
+# (otherwise ambiguous) distance_mi column.
+distance_expr, distance_alias, distance_unit = conv_length("r.distance_mi", "total")
 _, weighted_range_alias, range_unit = conv_length("distance_mi", "range_at_100pct")
 range_expr, avg_range_alias, _ = conv_length("range_at_100pct_mi", "range_at_100pct")
 speed_expr, speed_alias, speed_unit = conv_speed("avg_speed_mph", "avg_speed")
@@ -597,74 +599,102 @@ FROM capacity, consumption"""
 eff_panels.append(stat_panel(7, "Realistic Range (safe, to ~20% SoC -- see FINDINGS.md)", 18, 0, 6, 4,
     realistic_range_sql, unit=range_unit))
 
+# Consumption (Wh/km), SoC-independent counterpart to the range panels above -- same
+# trapezoidal V*I integration as charge_capacity_estimates, see drive_energy_estimates in
+# import.sql. Weighted (sum/sum), not an average of per-drive ratios, for the same reason as
+# weighted_range_sql.
+_eff_cons_expr, _eff_cons_alias, _eff_cons_unit = conv_consumption("sum(e.consumed_wh) / sum(e.distance_mi)", "avg_consumption")
+eff_panels.append(stat_panel(8, "Avg. Consumption (deep-depletion drives, >=30% SoC used)", 0, 4, 12, 4,
+    f"""SELECT round({_eff_cons_expr},1) FROM drive_energy_estimates e JOIN sessions s USING (source_file)
+WHERE (s.max_soc_pct - s.min_soc_pct) >= 30 AND $__timeFilter(e.started_at)""", unit=_eff_cons_unit))
+eff_panels.append(stat_panel(9, "Avg. Consumption (all qualifying drives -- biased low, see above)", 12, 4, 12, 4,
+    f"SELECT round({_eff_cons_expr},1) FROM drive_energy_estimates e WHERE $__timeFilter(e.started_at)", unit=_eff_cons_unit))
+
+_depth_cons_expr, _depth_cons_alias, _depth_cons_unit = conv_consumption("sum(e.consumed_wh) / sum(e.distance_mi)", "consumption")
 depth_sql = f"""SELECT
   CASE
-    WHEN soc_used_pct < 15 THEN '5-15%'
-    WHEN soc_used_pct < 30 THEN '15-30%'
-    WHEN soc_used_pct < 50 THEN '30-50%'
+    WHEN r.soc_used_pct < 15 THEN '5-15%'
+    WHEN r.soc_used_pct < 30 THEN '15-30%'
+    WHEN r.soc_used_pct < 50 THEN '30-50%'
     ELSE '50%+'
   END AS soc_used,
   count(*) AS n_drives,
   round(avg({speed_expr}),1) AS {speed_alias},
   round(sum({distance_expr})) AS {distance_alias},
-  round({weighted_range_sql()}) AS {weighted_range_alias}
-FROM drive_range_estimates
-WHERE $__timeFilter(started_at)
+  round({weighted_range_sql('r.distance_mi', 'r.soc_used_pct')}) AS {weighted_range_alias},
+  round({_depth_cons_expr},1) AS {_depth_cons_alias}
+FROM drive_range_estimates r
+LEFT JOIN drive_energy_estimates e USING (source_file)
+WHERE $__timeFilter(r.started_at)
 GROUP BY 1
-ORDER BY min(soc_used_pct)"""
+ORDER BY min(r.soc_used_pct)"""
 
-eff_panels.append(table_panel(4, "Range by Depletion Depth (shows the extrapolation bias)", 0, 4, 12, 6,
+eff_panels.append(table_panel(4, "Range by Depletion Depth (shows the extrapolation bias)", 0, 8, 12, 6,
     depth_sql,
     overrides=[
         {"matcher": {"id": "byName", "options": speed_alias}, "properties": [{"id": "unit", "value": speed_unit}]},
         {"matcher": {"id": "byName", "options": distance_alias}, "properties": [{"id": "unit", "value": distance_unit}]},
         {"matcher": {"id": "byName", "options": weighted_range_alias}, "properties": [{"id": "unit", "value": range_unit}]},
+        {"matcher": {"id": "byName", "options": _depth_cons_alias}, "properties": [{"id": "unit", "value": _depth_cons_unit}]},
     ]))
 
+# Consumption joined in here from drive_energy_estimates (a separate, SoC-independent derived
+# table, see import.sql) alongside the SoC-based range figures -- same speed buckets, so this
+# is the direct "why" for the range-vs-speed relationship above.
+_speed_cons_expr, _speed_cons_alias, _speed_cons_unit = conv_consumption("sum(consumed_wh) / sum(energy_distance_mi)", "consumption")
 speed_sql = f"""WITH base AS (
-  SELECT soc_used_pct, distance_mi, started_at,
-    {speed_expr} AS {speed_alias}, {range_expr} AS {avg_range_alias}
-  FROM drive_range_estimates
+  SELECT r.soc_used_pct, r.distance_mi, r.started_at,
+    {speed_expr} AS {speed_alias}, {range_expr} AS {avg_range_alias},
+    e.consumed_wh, e.distance_mi AS energy_distance_mi
+  FROM drive_range_estimates r
+  LEFT JOIN drive_energy_estimates e USING (source_file)
 )
 SELECT
   CASE {speed_buckets} END AS avg_speed,
   count(*) AS n_drives,
   round(avg({avg_range_alias})) AS avg_{avg_range_alias},
-  round({weighted_range_sql()}) AS weighted_{weighted_range_alias}
+  round({weighted_range_sql()}) AS weighted_{weighted_range_alias},
+  round({_speed_cons_expr},1) AS {_speed_cons_alias}
 FROM base
 WHERE $__timeFilter(started_at)
 GROUP BY 1
 ORDER BY min({speed_alias})"""
 
-eff_panels.append(table_panel(5, "Range by Average Riding Speed (drag scales ~v^2)", 12, 4, 12, 6,
+eff_panels.append(table_panel(5, "Range by Average Riding Speed (drag scales ~v^2)", 12, 8, 12, 6,
     speed_sql,
     overrides=[
         {"matcher": {"id": "byName", "options": f"avg_{avg_range_alias}"}, "properties": [{"id": "unit", "value": range_unit}]},
         {"matcher": {"id": "byName", "options": f"weighted_{weighted_range_alias}"}, "properties": [{"id": "unit", "value": range_unit}]},
+        {"matcher": {"id": "byName", "options": _speed_cons_alias}, "properties": [{"id": "unit", "value": _speed_cons_unit}]},
     ]))
 
+_temp_cons_expr, _temp_cons_alias, _temp_cons_unit = conv_consumption("sum(consumed_wh) / sum(energy_distance_mi)", "consumption")
 temp_sql = f"""WITH base AS (
-  SELECT soc_used_pct, distance_mi, avg_air_temp_f, started_at,
-    {temp_expr} AS {temp_alias}, {speed_expr} AS {speed_alias}
-  FROM drive_range_estimates
+  SELECT r.soc_used_pct, r.distance_mi, r.avg_air_temp_f, r.started_at,
+    {temp_expr} AS {temp_alias}, {speed_expr} AS {speed_alias},
+    e.consumed_wh, e.distance_mi AS energy_distance_mi
+  FROM drive_range_estimates r
+  LEFT JOIN drive_energy_estimates e USING (source_file)
 )
 SELECT
   CASE {temp_buckets} END AS air_temp,
   count(*) AS n_drives,
   round(avg({temp_alias}),1) AS {temp_alias},
   round(avg({speed_alias}),1) AS {speed_alias},
-  round({weighted_range_sql()}) AS weighted_{weighted_range_alias}
+  round({weighted_range_sql()}) AS weighted_{weighted_range_alias},
+  round({_temp_cons_expr},1) AS {_temp_cons_alias}
 FROM base
 WHERE avg_air_temp_f IS NOT NULL AND $__timeFilter(started_at)
 GROUP BY 1
 ORDER BY min({temp_alias})"""
 
-eff_panels.append(table_panel(6, "Range by Ambient Temperature (avg speed shown to rule out a speed confound)", 0, 10, 24, 6,
+eff_panels.append(table_panel(6, "Range by Ambient Temperature (avg speed shown to rule out a speed confound)", 0, 14, 24, 6,
     temp_sql,
     overrides=[
         {"matcher": {"id": "byName", "options": temp_alias}, "properties": [{"id": "unit", "value": temp_unit}]},
         {"matcher": {"id": "byName", "options": speed_alias}, "properties": [{"id": "unit", "value": speed_unit}]},
         {"matcher": {"id": "byName", "options": f"weighted_{weighted_range_alias}"}, "properties": [{"id": "unit", "value": range_unit}]},
+        {"matcher": {"id": "byName", "options": _temp_cons_alias}, "properties": [{"id": "unit", "value": _temp_cons_unit}]},
     ]))
 
 dash_efficiency = dashboard(UID_EFFICIENCY, "Empulse R -- Efficiency", eff_panels, [], time_from="2014-01-01")
