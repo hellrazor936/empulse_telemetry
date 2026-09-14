@@ -174,7 +174,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Consumption",
+      "title": "Consumption (Wh/km)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "bfx97xdyvr6dce"

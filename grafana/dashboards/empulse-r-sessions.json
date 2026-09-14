@@ -359,6 +359,10 @@
               {
                 "id": "decimals",
                 "value": 0
+              },
+              {
+                "id": "displayName",
+                "value": "Wh/km"
               }
             ]
           },

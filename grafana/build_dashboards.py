@@ -295,7 +295,11 @@ sessions_panels.append(table_panel(7, "Drive Sessions (click a row to open)", 0,
     overrides=[drive_link] + hide_epoch +
     [{"matcher": {"id": "byName", "options": _drive_dist_alias}, "properties": [{"id": "unit", "value": _drive_dist_unit}]},
      {"matcher": {"id": "byName", "options": _drive_speed_alias}, "properties": [{"id": "unit", "value": _drive_speed_unit}]},
-     {"matcher": {"id": "byName", "options": _drive_consumption_alias}, "properties": [{"id": "unit", "value": _drive_consumption_unit}, {"id": "decimals", "value": 0}]},
+     {"matcher": {"id": "byName", "options": _drive_consumption_alias}, "properties": [
+         {"id": "unit", "value": _drive_consumption_unit},
+         {"id": "decimals", "value": 0},
+         {"id": "displayName", "value": "Wh/km" if UNITS == "metric" else "Wh/mi"},
+     ]},
      {"matcher": {"id": "byName", "options": "duration_min"}, "properties": [{"id": "unit", "value": "m"}]}]))
 
 sessions_panels.append(table_panel(8, "Charge Sessions (click a row to open)", 0, 13, 24, 9, charge_table_sql,
@@ -648,7 +652,10 @@ drive_panels.append(stat_panel(1, "Duration", 0, 0, 4, 4,
     "SELECT round(extract(epoch from duration)/60,1) FROM sessions WHERE source_file = '$session'", unit="m"))
 _ddist_expr, _, _ddist_unit = conv_length("(odometer_end_mi - odometer_start_mi)", "distance")
 _dspeed_expr, _, _dspeed_unit = conv_speed("max_speed_mph", "max_speed")
-_dodo_expr, _, _dodo_unit = conv_length("odometer_end_mi", "odometer")
+# Odometer reading is always shown in km regardless of the UNITS toggle -- unlike a per-drive
+# distance or consumption figure, an odometer reading is a fixed real-world quantity people
+# recognize in one unit, not something that should flip with a display preference.
+_dodo_expr, _dodo_unit = "odometer_end_mi * 1.609344", "lengthkm"
 drive_panels.append(stat_panel(2, "Distance", 4, 0, 4, 4,
     f"SELECT round({_ddist_expr}, 1) FROM sessions WHERE source_file = '$session'", unit=_ddist_unit))
 drive_panels.append(stat_panel(3, "Max Speed", 8, 0, 4, 4,
@@ -656,7 +663,8 @@ drive_panels.append(stat_panel(3, "Max Speed", 8, 0, 4, 4,
 drive_panels.append(stat_panel(4, "Delta SoC", 12, 0, 4, 4,
     "SELECT round(max_soc_pct - min_soc_pct, 1) FROM sessions WHERE source_file = '$session'", unit="percent"))
 _dcons_expr, _dcons_alias, _dcons_unit = conv_consumption("wh_per_mi", "consumption")
-drive_panels.append(stat_panel(5, "Consumption", 16, 0, 4, 4,
+_dcons_title = "Consumption (Wh/km)" if UNITS == "metric" else "Consumption (Wh/mi)"
+drive_panels.append(stat_panel(5, _dcons_title, 16, 0, 4, 4,
     f"SELECT round({_dcons_expr}, 1) FROM drive_energy_estimates WHERE source_file = '$session'", unit=_dcons_unit))
 drive_panels.append(stat_panel(6, "Odometer (End)", 20, 0, 4, 4,
     f"SELECT round({_dodo_expr}, 1) FROM sessions WHERE source_file = '$session'", unit=_dodo_unit))
