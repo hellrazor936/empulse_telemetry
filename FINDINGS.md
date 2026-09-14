@@ -179,6 +179,63 @@ region), not a pack health issue -- worth checking before assuming a wiring/cont
 
 ## Open / unresolved
 
+### Low-SoC range has effectively never been exercised -- can't tell degradation from "never tested" (hypothesis)
+
+**Motivation**: this is the actual reason I'm looking at a replacement pack. A 2026-09-14 drive
+(68.4 km, 100% -> 42.8% SoC, 71.2 Wh/km) prompted the question of whether continuing another
+~40 km on the same profile would have been safe. Extrapolating the weakest cell's voltage
+against SoC for that drive (binning to 2%-SoC buckets to average out load-transient noise, then
+a linear fit -- R^2=0.76) put the 3.30V crossing (my own lived shutdown threshold, see the BMS
+fault flag finding above) at ~22% SoC, i.e. only ~25 km / ~30 min further than actually driven,
+not 40. That matches how the bike has felt in the low range recently.
+
+```sql
+WITH joined AS (
+  SELECT b.*, (dt.odometer_mi - s.odometer_start_mi) * 1.609344 AS dist_km
+  FROM battery_soc b
+  JOIN drive_telemetry dt USING (source_file, "timestamp")
+  JOIN sessions s USING (source_file)
+  WHERE b.source_file = '<the drive in question>'
+),
+binned AS (
+  SELECT round(overall_soc_pct/2)*2 AS soc_bucket, avg(low_cell_v) AS avg_low_cell_v
+  FROM joined GROUP BY 1
+)
+SELECT regr_slope(avg_low_cell_v, soc_bucket) AS slope_v_per_pct,
+  regr_intercept(avg_low_cell_v, soc_bucket) AS intercept_v,
+  regr_r2(avg_low_cell_v, soc_bucket) AS r2,
+  (3.30 - regr_intercept(avg_low_cell_v, soc_bucket)) / regr_slope(avg_low_cell_v, soc_bucket) AS soc_at_330v
+FROM binned;
+```
+
+**The problem**: I can't tell from this alone whether the pack has specifically gotten worse in
+the low-SoC range, or whether it was simply always like this down there and nobody ever found
+out, because the low-SoC range has almost never been visited in 10+ years of logs:
+
+```sql
+-- Every drive that ever reached <=15% SoC, across the whole 10-year history
+SELECT source_file, started_at, min_soc_pct
+FROM sessions WHERE session_type = 'drive' AND min_soc_pct <= 15
+ORDER BY started_at;
+```
+
+Result: exactly **3 drives**, all from **July 2024** (`58E31613.DRV`, `58E904ED.DRV`,
+`58EBBC16.DRV`, reaching 10.0%/8.6%/2.1% SoC) -- these line up with the 2024 stranding
+investigation referenced in `schema.sql`. Their weakest cell readings: 3.195V, 3.29V, 3.38V, with
+652/19/10 `bms_fault_flag` samples respectively -- consistent with the 3.30V danger zone. There
+is no earlier (e.g. 2014-2015, pack-new) deep-discharge session on record to compare against, so
+there's no baseline for "how did the low end behave when the pack was new" -- only "how does it
+behave now, rarely tested." Two competing explanations, can't distinguish between them from the
+data alone:
+1. The pack's low-SoC voltage sag has genuinely worsened with age (aged/higher-resistance cells
+   sag harder exactly where the discharge curve is already steepest).
+2. The pack always behaved this way down there and it was simply never driven into that range
+   before 2024 -- i.e. this isn't new degradation, just newly-observed original behavior.
+
+Would need an early-life deep-discharge log (unlikely to exist -- deep discharges are rare by
+nature and the owner wasn't logging every charge/drive habit from day one) or a like-for-like
+comparison against a same-age pack to resolve which explanation is right.
+
 ### Module 3 aging + short-gap SoC drops (hypothesis)
 
 Comparing SoC at the end of one drive to SoC at the start of the next (no charge session logged
