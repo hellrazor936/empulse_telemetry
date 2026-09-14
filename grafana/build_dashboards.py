@@ -746,7 +746,12 @@ drive_panels.append(ts_panel(12, "Module-to-Module SoC Spread", 12, 20, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", GREATEST(module1_soc_pct, module2_soc_pct, module3_soc_pct, module4_soc_pct, module5_soc_pct, module6_soc_pct, module7_soc_pct) - LEAST(module1_soc_pct, module2_soc_pct, module3_soc_pct, module4_soc_pct, module5_soc_pct, module6_soc_pct, module7_soc_pct) AS module_spread_pct FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1", unit="percent"))
 drive_panels.append(ts_panel(13, "Per-Module Current", 0, 28, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", module1_current_a, module2_current_a, module3_current_a, module4_current_a, module5_current_a, module6_current_a, module7_current_a FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit="amp",
-    y_min=-60, y_max=60))
+    # Only the positive side is clipped: during a drive, current reads negative for real
+    # discharge (routinely -100 to -300A under hard acceleration -- entirely legitimate, not
+    # an artifact) and only ever goes positive for the much smaller regen current. Large
+    # positive spikes are the sampling-timing artifact; large negative ones are real driving
+    # and must not be clipped away.
+    y_max=60))
 drive_panels.append(ts_panel(14, "Per-Module Cell Temp", 12, 28, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", {MODULE_CELL_TEMP_COLS} FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit=MODULE_CELL_TEMP_UNIT))
 drive_panels.append(heatmap_panel(15, "Cell Voltage Heatmap (28 cells)", 0, 36, 24, 9,
@@ -821,7 +826,10 @@ charge_panels.append(ts_panel(7, "SoC & Pack Voltage", 0, 4, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", overall_soc_pct, pack_voltage_v FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1"))
 charge_panels.append(ts_panel(8, "Per-Module Charge Current", 12, 4, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", module1_current_a, module2_current_a, module3_current_a, module4_current_a, module5_current_a, module6_current_a, module7_current_a FROM module_current_temp WHERE source_file = '$session' AND {tf} ORDER BY 1", unit="amp",
-    y_min=-60, y_max=60))
+    # Same reasoning as the drive Per-Module Current panel: only clip the positive side.
+    # Real charge current never exceeds ~25A on this bike, so this bound is mostly moot here,
+    # but not clipping the negative side keeps the two panels consistent.
+    y_max=60))
 charge_panels.append(ts_panel(9, "Cell Imbalance & Cell Temp Range", 0, 12, 12, 8,
     f"SELECT \"timestamp\" AS \"time\", cell_imbalance_mv, {CELL_TEMP_RANGE_COLS} FROM battery_soc WHERE source_file = '$session' AND {tf} ORDER BY 1",
     overrides=CELL_TEMP_RANGE_OVERRIDES))

@@ -654,7 +654,6 @@
             "spanNulls": true
           },
           "unit": "amp",
-          "min": -60,
           "max": 60
         },
         "overrides": []
