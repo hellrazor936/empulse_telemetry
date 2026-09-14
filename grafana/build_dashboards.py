@@ -306,7 +306,7 @@ sessions_panels.append(table_panel(8, "Charge Sessions (click a row to open)", 0
     overrides=[charge_link] + hide_epoch +
     [{"matcher": {"id": "byName", "options": "duration_min"}, "properties": [{"id": "unit", "value": "m"}]},
      {"matcher": {"id": "byName", "options": "estimated_capacity_ah"}, "properties": [{"id": "unit", "value": "amph"}, {"id": "decimals", "value": 1}]},
-     {"matcher": {"id": "byName", "options": "estimated_capacity_wh"}, "properties": [{"id": "unit", "value": "watth"}, {"id": "decimals", "value": 0}]}]))
+     {"matcher": {"id": "byName", "options": "estimated_capacity_wh"}, "properties": [{"id": "unit", "value": "watth"}, {"id": "decimals", "value": 1}]}]))
 
 # estimated_capacity_wh comes from direct trapezoidal integration of pack power (V x I), not
 # Ah x avg(V) -- see charge_capacity_estimates in import.sql for why that matters. The measured
