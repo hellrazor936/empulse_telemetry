@@ -309,28 +309,26 @@ sessions_panels.append(table_panel(8, "Charge Sessions (click a row to open)", 0
      {"matcher": {"id": "byName", "options": "estimated_capacity_wh"}, "properties": [{"id": "unit", "value": "watth"}, {"id": "decimals", "value": 1}]}]))
 
 # estimated_capacity_wh comes from direct trapezoidal integration of pack power (V x I), not
-# Ah x avg(V) -- see charge_capacity_estimates in import.sql for why that matters. The measured
-# values are scaled by a constant factor so the earliest reliable reading (avg of the first 5
-# charges, Sept 2014) lines up with an assumed 10 kWh nominal pack capacity -- this is a display
-# anchor, not a re-measurement: the fade %/year and total-fade stats are scale-invariant and
-# identical either way, since scaling is a pure multiplicative constant.
+# Ah x avg(V) -- see charge_capacity_estimates in import.sql for why that matters. Shown as
+# directly measured, unscaled Wh -- an earlier version of this panel scaled everything so the
+# earliest reading lined up with an assumed 10 kWh nominal capacity as a display anchor. Dropped
+# that: it made the raw baseline (~8.85 kWh, well below both the measured value and the 9.36 kWh
+# manufacturer nameplate from the forum thread) look like it was validating the nameplate figure,
+# when the 10 kWh was actually just a made-up round anchor -- and it was inconsistent with every
+# other capacity panel/table on this dashboard, which all show the real unscaled Wh.
 capacity_sql = """WITH baseline AS (
   SELECT avg(estimated_capacity_wh) AS b FROM (
     SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5
   ) x
-),
-scaled AS (
-  SELECT started_at, estimated_capacity_wh * (10000.0 / baseline.b) AS estimated_capacity_wh
-  FROM charge_capacity_estimates, baseline
 )
 SELECT started_at AS "time", estimated_capacity_wh,
   avg(estimated_capacity_wh) OVER () AS average_capacity_wh,
-  estimated_capacity_wh / 10000.0 * 100 AS pct_of_baseline
-FROM scaled
+  estimated_capacity_wh / baseline.b * 100 AS pct_of_baseline
+FROM charge_capacity_estimates, baseline
 WHERE $__timeFilter(started_at)
 ORDER BY started_at"""
 
-sessions_panels.append(ts_panel(9, "Estimated Pack Capacity Over Time (scaled to 10 kWh nominal at pack start)",
+sessions_panels.append(ts_panel(9, "Estimated Pack Capacity Over Time (measured, unscaled Wh)",
     0, 22, 18, 9, capacity_sql,
     overrides=[
         {"matcher": {"id": "byName", "options": "estimated_capacity_wh"}, "properties": [{"id": "unit", "value": "watth"}, {"id": "displayName", "value": "Capacity"}]},

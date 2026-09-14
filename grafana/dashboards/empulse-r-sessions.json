@@ -520,7 +520,7 @@
     {
       "id": 9,
       "type": "timeseries",
-      "title": "Estimated Pack Capacity Over Time (scaled to 10 kWh nominal at pack start)",
+      "title": "Estimated Pack Capacity Over Time (measured, unscaled Wh)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "bfx97xdyvr6dce"
@@ -537,7 +537,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "WITH baseline AS (\n  SELECT avg(estimated_capacity_wh) AS b FROM (\n    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5\n  ) x\n),\nscaled AS (\n  SELECT started_at, estimated_capacity_wh * (10000.0 / baseline.b) AS estimated_capacity_wh\n  FROM charge_capacity_estimates, baseline\n)\nSELECT started_at AS \"time\", estimated_capacity_wh,\n  avg(estimated_capacity_wh) OVER () AS average_capacity_wh,\n  estimated_capacity_wh / 10000.0 * 100 AS pct_of_baseline\nFROM scaled\nWHERE $__timeFilter(started_at)\nORDER BY started_at",
+          "rawSql": "WITH baseline AS (\n  SELECT avg(estimated_capacity_wh) AS b FROM (\n    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at ASC LIMIT 5\n  ) x\n)\nSELECT started_at AS \"time\", estimated_capacity_wh,\n  avg(estimated_capacity_wh) OVER () AS average_capacity_wh,\n  estimated_capacity_wh / baseline.b * 100 AS pct_of_baseline\nFROM charge_capacity_estimates, baseline\nWHERE $__timeFilter(started_at)\nORDER BY started_at",
           "format": "time_series",
           "refId": "A",
           "editorMode": "code"
