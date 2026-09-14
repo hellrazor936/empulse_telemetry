@@ -27,7 +27,7 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 8,
+        "w": 6,
         "h": 4
       },
       "targets": [
@@ -59,9 +59,9 @@
         "uid": "bfx97xdyvr6dce"
       },
       "gridPos": {
-        "x": 8,
+        "x": 6,
         "y": 0,
-        "w": 8,
+        "w": 6,
         "h": 4
       },
       "targets": [
@@ -93,9 +93,9 @@
         "uid": "bfx97xdyvr6dce"
       },
       "gridPos": {
-        "x": 16,
+        "x": 12,
         "y": 0,
-        "w": 8,
+        "w": 6,
         "h": 4
       },
       "targets": [
@@ -113,6 +113,40 @@
       "fieldConfig": {
         "defaults": {
           "noValue": "n/a"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Realistic Range (safe, to ~20% SoC -- see FINDINGS.md)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bfx97xdyvr6dce"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "bfx97xdyvr6dce"
+          },
+          "rawSql": "WITH capacity AS (\n  SELECT avg(x.estimated_capacity_wh) AS b FROM (\n    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at DESC LIMIT 5\n  ) x\n),\nconsumption AS (\n  SELECT sum(e.consumed_wh) / sum(e.distance_mi) AS wh_per_mi\n  FROM drive_energy_estimates e\n  JOIN sessions s USING (source_file)\n  WHERE (s.max_soc_pct - s.min_soc_pct) >= 30\n)\nSELECT round(capacity.b * 0.80 / consumption.wh_per_mi * 1.609344)\nFROM capacity, consumption",
+          "format": "table",
+          "refId": "A",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "n/a",
+          "unit": "lengthkm"
         },
         "overrides": []
       }

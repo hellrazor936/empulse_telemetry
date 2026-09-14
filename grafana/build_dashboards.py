@@ -567,12 +567,37 @@ else:
     speed_buckets = f"WHEN {speed_alias} < 20 THEN '<20 mph' WHEN {speed_alias} < 30 THEN '20-30 mph' WHEN {speed_alias} < 40 THEN '30-40 mph' ELSE '40+ mph'"
     temp_buckets = f"WHEN {temp_alias} < 40 THEN '<40F' WHEN {temp_alias} < 60 THEN '40-60F' WHEN {temp_alias} < 80 THEN '60-80F' ELSE '80F+'"
 
-eff_panels.append(stat_panel(1, "Avg. Range at 100% SoC (deep-depletion drives, >=30% SoC used)", 0, 0, 8, 4,
+eff_panels.append(stat_panel(1, "Avg. Range at 100% SoC (deep-depletion drives, >=30% SoC used)", 0, 0, 6, 4,
     f"SELECT round({weighted_range_sql()}) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)", unit=range_unit))
-eff_panels.append(stat_panel(2, "Avg. Range at 100% SoC (all qualifying drives -- biased high, see below)", 8, 0, 8, 4,
+eff_panels.append(stat_panel(2, "Avg. Range at 100% SoC (all qualifying drives -- biased high, see below)", 6, 0, 6, 4,
     f"SELECT round({weighted_range_sql()}) FROM drive_range_estimates WHERE $__timeFilter(started_at)", unit=range_unit))
-eff_panels.append(stat_panel(3, "Deep-Depletion Drives (>=30% SoC used)", 16, 0, 8, 4,
+eff_panels.append(stat_panel(3, "Deep-Depletion Drives (>=30% SoC used)", 12, 0, 6, 4,
     "SELECT count(*) FROM drive_range_estimates WHERE soc_used_pct >= 30 AND $__timeFilter(started_at)"))
+
+# "Realistic" range: not 100%->0% SoC like the naive estimate above, but 100%-> a ~20% SoC
+# floor -- see FINDINGS.md's "Low-SoC range has effectively never been exercised" entry. That
+# floor comes from extrapolating a 2026-09 drive's weakest-cell-voltage-vs-SoC trend to the
+# 3.30V point the owner has personally experienced as a shutdown threshold (~22% SoC for that
+# drive's load profile; rounded down to 20% here as a slightly more conservative, general
+# figure). Uses the most recent 5 charges for current capacity (not the original 2014 baseline)
+# and deep-depletion (>=30% SoC used) drives for consumption, since those are more representative
+# of a real range-limited trip than short in-town hops.
+_realistic_factor = 1.609344 if UNITS == "metric" else 1
+realistic_range_sql = f"""WITH capacity AS (
+  SELECT avg(x.estimated_capacity_wh) AS b FROM (
+    SELECT estimated_capacity_wh FROM charge_capacity_estimates ORDER BY started_at DESC LIMIT 5
+  ) x
+),
+consumption AS (
+  SELECT sum(e.consumed_wh) / sum(e.distance_mi) AS wh_per_mi
+  FROM drive_energy_estimates e
+  JOIN sessions s USING (source_file)
+  WHERE (s.max_soc_pct - s.min_soc_pct) >= 30
+)
+SELECT round(capacity.b * 0.80 / consumption.wh_per_mi * {_realistic_factor})
+FROM capacity, consumption"""
+eff_panels.append(stat_panel(7, "Realistic Range (safe, to ~20% SoC -- see FINDINGS.md)", 18, 0, 6, 4,
+    realistic_range_sql, unit=range_unit))
 
 depth_sql = f"""SELECT
   CASE
