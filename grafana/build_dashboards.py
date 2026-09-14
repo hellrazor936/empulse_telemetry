@@ -653,10 +653,11 @@ drive_panels.append(stat_panel(2, "Distance", 4, 0, 4, 4,
     f"SELECT round({_ddist_expr}, 1) FROM sessions WHERE source_file = '$session'", unit=_ddist_unit))
 drive_panels.append(stat_panel(3, "Max Speed", 8, 0, 4, 4,
     f"SELECT round({_dspeed_expr}, 1) FROM sessions WHERE source_file = '$session'", unit=_dspeed_unit))
-drive_panels.append(stat_panel(4, "Min SoC", 12, 0, 4, 4,
-    "SELECT min_soc_pct FROM sessions WHERE source_file = '$session'", unit="percent"))
-drive_panels.append(stat_panel(5, "Max SoC", 16, 0, 4, 4,
-    "SELECT max_soc_pct FROM sessions WHERE source_file = '$session'", unit="percent"))
+drive_panels.append(stat_panel(4, "Delta SoC", 12, 0, 4, 4,
+    "SELECT round(max_soc_pct - min_soc_pct, 1) FROM sessions WHERE source_file = '$session'", unit="percent"))
+_dcons_expr, _dcons_alias, _dcons_unit = conv_consumption("wh_per_mi", "consumption")
+drive_panels.append(stat_panel(5, "Consumption", 16, 0, 4, 4,
+    f"SELECT round({_dcons_expr}, 1) FROM drive_energy_estimates WHERE source_file = '$session'", unit=_dcons_unit))
 drive_panels.append(stat_panel(6, "Odometer (End)", 20, 0, 4, 4,
     f"SELECT round({_dodo_expr}, 1) FROM sessions WHERE source_file = '$session'", unit=_dodo_unit))
 

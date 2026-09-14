@@ -140,7 +140,7 @@
     {
       "id": 4,
       "type": "stat",
-      "title": "Min SoC",
+      "title": "Delta SoC",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "bfx97xdyvr6dce"
@@ -157,7 +157,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT min_soc_pct FROM sessions WHERE source_file = '$session'",
+          "rawSql": "SELECT round(max_soc_pct - min_soc_pct, 1) FROM sessions WHERE source_file = '$session'",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -174,7 +174,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Max SoC",
+      "title": "Consumption",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "bfx97xdyvr6dce"
@@ -191,7 +191,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT max_soc_pct FROM sessions WHERE source_file = '$session'",
+          "rawSql": "SELECT round(wh_per_mi / 1.609344, 1) FROM drive_energy_estimates WHERE source_file = '$session'",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -200,7 +200,7 @@
       "fieldConfig": {
         "defaults": {
           "noValue": "n/a",
-          "unit": "percent"
+          "unit": "watth"
         },
         "overrides": []
       }
