@@ -14,6 +14,42 @@ For confirmed byte-level decode findings (which byte means what), see the commen
 `decode_empulse_logs.py` and `schema.sql` instead; for open technical questions about the log
 format itself, see the GitHub issues.
 
+## Methodology caveat: how much of this depends on the BMS's own SoC%?
+
+`overall_soc_pct` / `module{N}_soc_pct` are **BMS-computed** values -- decoded from the log, not
+independently derived or validated. Everything else used below (cell voltage, current, the
+balancing/fault bitmasks) is either a direct measurement or a directly-decoded BMS bit, and
+doesn't depend on the BMS's internal SoC algorithm being accurate. If that algorithm drifted,
+got recalibrated, or is just noisy near the flat part of the Li-ion voltage curve, here's what
+that would mean for the findings above:
+
+**Findings that would need to be reconsidered or rebuilt** if BMS SoC% isn't trustworthy:
+- *Pack Capacity Degradation Trend / Capacity Fade panels* -- `estimated_capacity_wh` is
+  `charged_wh / (soc_delta/100)`: a real energy measurement divided by a BMS-estimated
+  percentage. A shift in the SoC algorithm over 10 years would show up as fake "degradation"
+  here. This is the single biggest exposure in the whole project.
+- *Module 3 aging + short-gap SoC drops* (below) -- built entirely on `overall_soc_pct`
+  differences. Voltage relaxation misread by the BMS's own SoC estimator would produce exactly
+  this pattern with zero real charge loss -- already flagged as a caveat on that entry, but
+  worth being explicit that the whole hypothesis rests on trusting SoC%.
+- *Module imbalance caused strandings* (below) -- uses `module{N}_soc_pct` spread as the
+  evidence. Would need re-deriving from per-module cell voltage at the time of the stranding
+  (e.g. distance from the ~3.7V fault threshold) instead, to stand independent of SoC.
+
+**Findings that would only weaken slightly**: S56's "no correlation with SoC" is a negative
+result -- easier to (wrongly) get if SoC itself is noisy -- but the positive part of that
+finding (correlates with RPM/throttle, immediate torque cut) doesn't depend on SoC at all.
+
+**Findings unaffected**: BMS fault flag = low-cell-voltage warning, passive/intra vs. active/
+inter balancing, and modules 1 & 3 as weakest (both methods) -- none of these use SoC%, only
+voltage, current, and directly-decoded bitmask fields.
+
+A proper fix would replace the SoC-delta-based capacity estimate with a voltage/current-taper-
+based one (detect "full" via charge current tapering near ~4.1-4.15V/cell instead of trusting a
+SoC% label) and re-derive the module-imbalance and module-3 findings from voltage instead of
+SoC. Not done here -- flagged as a known methodology risk instead, since redoing the whole
+capacity pipeline is a bigger project than the findings it would touch.
+
 ## Confirmed
 
 ### Module imbalance caused "low battery" strandings, not a depleted pack
