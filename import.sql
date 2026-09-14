@@ -304,6 +304,56 @@ FROM drive_soc
 WHERE distance_mi >= (5 / 1.609344) AND (soc_start - soc_end) >= 5
 ORDER BY started_at;
 
+-- Real-world energy consumption per drive, via the same trapezoidal V*I integration as
+-- charge_capacity_estimates but for discharge and divided by actual odometer distance instead
+-- of SoC used -- unlike drive_range_estimates above, this doesn't depend on the BMS's own SoC%
+-- estimate at all, only measured voltage/current and the odometer (see FINDINGS.md's SoC
+-- reliability caveat for why that matters). Current isn't abs()'d: discharge reads negative on
+-- this bike (confirmed empirically), regen braking reads positive, so the raw signed integral
+-- nets out regen against consumption -- negated so a normal drive gives a positive consumed_wh.
+DROP TABLE IF EXISTS drive_energy_estimates;
+CREATE TABLE drive_energy_estimates AS
+WITH readings AS (
+    SELECT
+        m.source_file,
+        m.timestamp,
+        (m.module1_current_a + m.module2_current_a + m.module3_current_a + m.module4_current_a
+         + m.module5_current_a + m.module6_current_a + m.module7_current_a) / 7.0 AS avg_current_a,
+        b.pack_voltage_v
+    FROM module_current_temp m
+    JOIN battery_soc b USING (source_file, "timestamp")
+    JOIN sessions s USING (source_file)
+    WHERE s.session_type = 'drive'
+),
+integrated AS (
+    SELECT
+        source_file, "timestamp",
+        EXTRACT(EPOCH FROM ("timestamp" - LAG("timestamp") OVER w)) AS dt_s,
+        (avg_current_a * pack_voltage_v + LAG(avg_current_a * pack_voltage_v) OVER w) / 2.0 AS trapz_power_w
+    FROM readings
+    WINDOW w AS (PARTITION BY source_file ORDER BY "timestamp")
+),
+per_session AS (
+    SELECT
+        source_file,
+        -sum(COALESCE(trapz_power_w * dt_s, 0)) / 3600.0 AS consumed_wh
+    FROM integrated
+    GROUP BY source_file
+)
+SELECT
+    p.source_file,
+    s.started_at,
+    (s.odometer_end_mi - s.odometer_start_mi) AS distance_mi,
+    p.consumed_wh,
+    p.consumed_wh / NULLIF(s.odometer_end_mi - s.odometer_start_mi, 0) AS wh_per_mi
+FROM per_session p
+JOIN sessions s USING (source_file)
+WHERE s.odometer_end_mi IS NOT NULL AND s.odometer_start_mi IS NOT NULL
+  AND (s.odometer_end_mi - s.odometer_start_mi) >= (5 / 1.609344)
+ORDER BY s.started_at;
+
+ALTER TABLE drive_energy_estimates ADD PRIMARY KEY (source_file);
+
 -- sanity check counts
 SELECT 'battery_soc' t, count(*) FROM battery_soc
 UNION ALL SELECT 'cell_voltages', count(*) FROM cell_voltages
@@ -319,4 +369,5 @@ UNION ALL SELECT 'long_idle_periods', count(*) FROM long_idle_periods
 UNION ALL SELECT 'module_soc_spread', count(*) FROM module_soc_spread
 UNION ALL SELECT 'module_balancing_summary', count(*) FROM module_balancing_summary
 UNION ALL SELECT 'eoc_cell_imbalance', count(*) FROM eoc_cell_imbalance
-UNION ALL SELECT 'drive_range_estimates', count(*) FROM drive_range_estimates;
+UNION ALL SELECT 'drive_range_estimates', count(*) FROM drive_range_estimates
+UNION ALL SELECT 'drive_energy_estimates', count(*) FROM drive_energy_estimates;

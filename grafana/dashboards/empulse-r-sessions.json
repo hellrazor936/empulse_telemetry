@@ -259,7 +259,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "SELECT\n  source_file, started_at, ended_at,\n  round(extract(epoch from duration)/60,1) AS duration_min,\n  round((odometer_end_mi - odometer_start_mi) * 1.609344, 1) AS distance_km,\n  round(max_speed_mph * 1.609344, 1) AS max_speed_kmh,\n  min_soc_pct, max_soc_pct,\n  extract(epoch from started_at)*1000 AS started_epoch,\n  extract(epoch from ended_at)*1000 AS ended_epoch\nFROM sessions WHERE session_type = 'drive'\n  AND $__timeFilter(started_at)\n  AND extract(epoch from duration)/60 >= ${min_duration_min}\n  AND COALESCE((odometer_end_mi - odometer_start_mi) * 1.609344, 0) >= ${min_distance_km}\nORDER BY started_at DESC",
+          "rawSql": "SELECT\n  s.source_file, s.started_at, s.ended_at,\n  round(extract(epoch from s.duration)/60,1) AS duration_min,\n  round((odometer_end_mi - odometer_start_mi) * 1.609344, 1) AS distance_km,\n  round(max_speed_mph * 1.609344, 1) AS max_speed_kmh,\n  round(e.wh_per_mi / 1.609344, 1) AS consumption_per_km,\n  s.min_soc_pct, s.max_soc_pct,\n  extract(epoch from s.started_at)*1000 AS started_epoch,\n  extract(epoch from s.ended_at)*1000 AS ended_epoch\nFROM sessions s\nLEFT JOIN drive_energy_estimates e USING (source_file)\nWHERE s.session_type = 'drive'\n  AND $__timeFilter(s.started_at)\n  AND extract(epoch from s.duration)/60 >= ${min_duration_min}\n  AND COALESCE((odometer_end_mi - odometer_start_mi) * 1.609344, 0) >= ${min_distance_km}\nORDER BY s.started_at DESC",
           "format": "table",
           "refId": "A",
           "editorMode": "code"
@@ -343,6 +343,22 @@
               {
                 "id": "unit",
                 "value": "velocitykmh"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "consumption_per_km"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watth"
+              },
+              {
+                "id": "decimals",
+                "value": 0
               }
             ]
           },

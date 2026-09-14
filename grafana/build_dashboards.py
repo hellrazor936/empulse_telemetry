@@ -32,6 +32,13 @@ def conv_temp_f(col, alias):
     return col, f"{alias}_f", "fahrenheit"
 
 
+def conv_consumption(col, alias):
+    """Wh/km (from a *_per_mi column) in metric mode, raw Wh/mi in imperial mode."""
+    if UNITS == "metric":
+        return f"{col} / 1.609344", f"{alias}_per_km", "watth"
+    return col, f"{alias}_per_mi", "watth"
+
+
 def conv_temp_c(col, alias):
     """Celsius as-is in metric mode (e.g. cell temps, already stored in C); converted to F
     in imperial mode."""
@@ -250,21 +257,25 @@ hide_epoch = [
 
 _drive_dist_expr, _drive_dist_alias, _drive_dist_unit = conv_length("(odometer_end_mi - odometer_start_mi)", "distance")
 _drive_speed_expr, _drive_speed_alias, _drive_speed_unit = conv_speed("max_speed_mph", "max_speed")
+_drive_consumption_expr, _drive_consumption_alias, _drive_consumption_unit = conv_consumption("e.wh_per_mi", "consumption")
 MIN_DISTANCE_VAR_NAME = "min_distance_km" if UNITS == "metric" else "min_distance_mi"
 
 drive_table_sql = f"""SELECT
-  source_file, started_at, ended_at,
-  round(extract(epoch from duration)/60,1) AS duration_min,
+  s.source_file, s.started_at, s.ended_at,
+  round(extract(epoch from s.duration)/60,1) AS duration_min,
   round({_drive_dist_expr}, 1) AS {_drive_dist_alias},
   round({_drive_speed_expr}, 1) AS {_drive_speed_alias},
-  min_soc_pct, max_soc_pct,
-  extract(epoch from started_at)*1000 AS started_epoch,
-  extract(epoch from ended_at)*1000 AS ended_epoch
-FROM sessions WHERE session_type = 'drive'
-  AND $__timeFilter(started_at)
-  AND extract(epoch from duration)/60 >= ${{min_duration_min}}
+  round({_drive_consumption_expr}, 1) AS {_drive_consumption_alias},
+  s.min_soc_pct, s.max_soc_pct,
+  extract(epoch from s.started_at)*1000 AS started_epoch,
+  extract(epoch from s.ended_at)*1000 AS ended_epoch
+FROM sessions s
+LEFT JOIN drive_energy_estimates e USING (source_file)
+WHERE s.session_type = 'drive'
+  AND $__timeFilter(s.started_at)
+  AND extract(epoch from s.duration)/60 >= ${{min_duration_min}}
   AND COALESCE({_drive_dist_expr}, 0) >= ${{{MIN_DISTANCE_VAR_NAME}}}
-ORDER BY started_at DESC"""
+ORDER BY s.started_at DESC"""
 
 charge_table_sql = """SELECT
   s.source_file, s.started_at, s.ended_at,
@@ -284,6 +295,7 @@ sessions_panels.append(table_panel(7, "Drive Sessions (click a row to open)", 0,
     overrides=[drive_link] + hide_epoch +
     [{"matcher": {"id": "byName", "options": _drive_dist_alias}, "properties": [{"id": "unit", "value": _drive_dist_unit}]},
      {"matcher": {"id": "byName", "options": _drive_speed_alias}, "properties": [{"id": "unit", "value": _drive_speed_unit}]},
+     {"matcher": {"id": "byName", "options": _drive_consumption_alias}, "properties": [{"id": "unit", "value": _drive_consumption_unit}, {"id": "decimals", "value": 0}]},
      {"matcher": {"id": "byName", "options": "duration_min"}, "properties": [{"id": "unit", "value": "m"}]}]))
 
 sessions_panels.append(table_panel(8, "Charge Sessions (click a row to open)", 0, 13, 24, 9, charge_table_sql,
