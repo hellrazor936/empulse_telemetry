@@ -473,7 +473,8 @@ pct_trend_sql = """WITH baseline AS (
   ) x
 )
 SELECT time_bucket('60 days', c.started_at) AS "time",
-  avg(c.estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline
+  avg(c.estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline,
+  avg(c.estimated_capacity_wh) / 1000.0 AS capacity_kwh
 FROM charge_capacity_estimates c
 JOIN sessions s USING (source_file)
 CROSS JOIN baseline
@@ -482,7 +483,18 @@ GROUP BY 1, baseline.b
 ORDER BY 1"""
 
 pct_trend_panel = ts_panel(22, "Pack Capacity Degradation Trend (% of baseline, 60-day average, charges >=30min)", 0, 76, 24, 9,
-    pct_trend_sql, unit="percent")
+    pct_trend_sql,
+    overrides=[
+        {"matcher": {"id": "byName", "options": "pct_of_baseline"}, "properties": [
+            {"id": "unit", "value": "percent"},
+            {"id": "displayName", "value": "% of baseline"},
+        ]},
+        {"matcher": {"id": "byName", "options": "capacity_kwh"}, "properties": [
+            {"id": "unit", "value": "kwatth"},
+            {"id": "displayName", "value": "Capacity (kWh)"},
+            {"id": "custom.axisPlacement", "value": "right"},
+        ]},
+    ])
 # Smooth curve instead of straight linear segments between the 60-day bucket points --
 # this is a smoothed trend line, not a raw sample-by-sample series, so a curved
 # interpolation reads more naturally than sharp linear kinks at each point.

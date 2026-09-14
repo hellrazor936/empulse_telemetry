@@ -1241,7 +1241,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "bfx97xdyvr6dce"
           },
-          "rawSql": "WITH baseline AS (\n  SELECT avg(x.estimated_capacity_wh) AS b FROM (\n    SELECT c.estimated_capacity_wh\n    FROM charge_capacity_estimates c\n    JOIN sessions s USING (source_file)\n    WHERE extract(epoch FROM s.duration) >= 1800\n    ORDER BY c.started_at ASC LIMIT 5\n  ) x\n)\nSELECT time_bucket('60 days', c.started_at) AS \"time\",\n  avg(c.estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline\nFROM charge_capacity_estimates c\nJOIN sessions s USING (source_file)\nCROSS JOIN baseline\nWHERE $__timeFilter(c.started_at) AND extract(epoch FROM s.duration) >= 1800\nGROUP BY 1, baseline.b\nORDER BY 1",
+          "rawSql": "WITH baseline AS (\n  SELECT avg(x.estimated_capacity_wh) AS b FROM (\n    SELECT c.estimated_capacity_wh\n    FROM charge_capacity_estimates c\n    JOIN sessions s USING (source_file)\n    WHERE extract(epoch FROM s.duration) >= 1800\n    ORDER BY c.started_at ASC LIMIT 5\n  ) x\n)\nSELECT time_bucket('60 days', c.started_at) AS \"time\",\n  avg(c.estimated_capacity_wh) / baseline.b * 100 AS pct_of_baseline,\n  avg(c.estimated_capacity_wh) / 1000.0 AS capacity_kwh\nFROM charge_capacity_estimates c\nJOIN sessions s USING (source_file)\nCROSS JOIN baseline\nWHERE $__timeFilter(c.started_at) AND extract(epoch FROM s.duration) >= 1800\nGROUP BY 1, baseline.b\nORDER BY 1",
           "format": "time_series",
           "refId": "A",
           "editorMode": "code"
@@ -1252,10 +1252,46 @@
           "custom": {
             "spanNulls": true,
             "lineInterpolation": "smooth"
-          },
-          "unit": "percent"
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pct_of_baseline"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "displayName",
+                "value": "% of baseline"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "capacity_kwh"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "kwatth"
+              },
+              {
+                "id": "displayName",
+                "value": "Capacity (kWh)"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
