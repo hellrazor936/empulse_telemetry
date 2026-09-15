@@ -177,6 +177,76 @@ If your fault events cluster at a specific RPM/throttle combination but scatter 
 SoC/voltage/temp, that's a sign it's a controller-side voltage-headroom limit (field-weakening
 region), not a pack health issue -- worth checking before assuming a wiring/contact problem.
 
+### SoC always settles down a couple points right after reaching 100% (not real energy loss)
+
+Comparing the SoC reading at the end of a charge to the SoC reading at the very start of the
+next session (whichever type, whatever the gap): after a charge that reached >=99.5% SoC, the
+next reading is consistently *lower* -- never higher -- even when the gap is seconds long.
+
+```sql
+WITH first_soc AS (
+  SELECT DISTINCT ON (source_file) source_file, overall_soc_pct AS soc_first
+  FROM battery_soc ORDER BY source_file, "timestamp" ASC
+),
+last_soc AS (
+  SELECT DISTINCT ON (source_file) source_file, overall_soc_pct AS soc_last
+  FROM battery_soc ORDER BY source_file, "timestamp" DESC
+),
+sess AS (
+  SELECT s.source_file, s.session_type, s.started_at, s.ended_at, f.soc_first, l.soc_last
+  FROM sessions s JOIN first_soc f USING (source_file) JOIN last_soc l USING (source_file)
+),
+ordered AS (
+  SELECT *,
+    lead(soc_first) OVER (ORDER BY started_at) AS next_soc_first,
+    lead(started_at) OVER (ORDER BY started_at) AS next_started_at
+  FROM sess
+)
+SELECT source_file, ended_at, soc_last, next_started_at, next_soc_first,
+  round(next_soc_first - soc_last, 1) AS soc_gap,
+  round(extract(epoch FROM (next_started_at - ended_at))/3600.0, 2) AS idle_hours
+FROM ordered
+WHERE session_type = 'charge' AND soc_last >= 99.5
+ORDER BY soc_gap;
+```
+
+Over 330 charges that reached >=99.5%, the gap to the next reading is *never positive* (max
+0.00 -- can't gain charge without charging) and clusters between 0 and -2.4 points, most often
+around -1.5 to -2.0 -- even with idle gaps as short as **29 seconds**. Far too fast to be real
+energy loss. Bucketing by idle time shows the drop appears almost immediately and barely grows
+from there: ~-1.1 at <1h, ~-1.8 to -2.0 out through a week, only clearly growing again past a
+month (which is a different, already-known phenomenon -- real self-discharge over long storage,
+see `long_idle_periods`).
+
+**Crucially, this only happens after a charge that actually reached ~100%** -- partial charges
+show essentially no gap at all:
+
+```sql
+-- same ordered/gaps CTEs as above, then:
+SELECT
+  CASE WHEN soc_last >= 99.5 THEN '100%' WHEN soc_last >= 90 THEN '90-99.5%'
+       WHEN soc_last >= 70 THEN '70-90%' WHEN soc_last >= 50 THEN '50-70%' ELSE '<50%' END AS end_soc_bucket,
+  count(*) AS n, round(avg(next_soc_first - soc_last),2) AS avg_gap
+FROM ordered
+WHERE session_type = 'charge'
+  AND extract(epoch FROM (next_started_at - ended_at))/3600.0 < 1
+GROUP BY 1 ORDER BY 1;
+```
+
+100% charges: avg -1.09 (n=160). Everything from 50% to 99.5%: avg between -0.18 and +0.17,
+essentially noise (n=5-16 each). This points at a voltage-saturation effect rather than a
+coulomb-counting drift: near full charge the cell voltage curve is very flat/high, so the
+voltage-informed SoC estimate easily reads "100%" right at charge termination, then corrects
+itself down by a couple points once the pack settles at rest -- a correction the algorithm
+doesn't need to make anywhere below full, where the voltage curve is more informative.
+
+**Caveat**: one short-gap case (`58E8AC06.CHG` -> `58E904ED.DRV`, 2024-07-08/09, gap -91.4 over
+2.26h) was excluded from the stats above as a clear outlier, not part of this pattern. The
+"next" session there is an 18-36-second power-on blip during the known July 2024 stranding
+period (see the low-SoC-range entry below) -- likely a startup-transient garbage reading in
+that very short session rather than a real SoC value, not the same settling effect described
+here.
+
 ## Open / unresolved
 
 ### Low-SoC range has effectively never been exercised -- can't tell degradation from "never tested" (hypothesis)
